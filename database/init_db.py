@@ -85,7 +85,7 @@ def init_database(db_path: str = "data/events.duckdb"):
     
     # Add H3 indexes to venues
     for venue in venues:
-        venue['h3_index'] = h3.geo_to_h3(venue['lat'], venue['lon'], 8)
+        venue['h3_index'] = h3.latlng_to_cell(venue['lat'], venue['lon'], 8)
     
     # Insert venues
     for venue in venues:
@@ -211,7 +211,7 @@ def init_database(db_path: str = "data/events.duckdb"):
     ]
     
     for user in users:
-        user['h3_index'] = h3.geo_to_h3(user['location_lat'], user['location_lon'], 8)
+        user['h3_index'] = h3.latlng_to_cell(user['location_lat'], user['location_lon'], 8)
         
         conn.execute("""
             INSERT INTO users (id, name, preferences, location_lat, location_lon, h3_index)
@@ -225,17 +225,17 @@ def init_database(db_path: str = "data/events.duckdb"):
     
     # Insert sample interactions for collaborative filtering
     interactions = [
-        {'user_id': users[0]['id'], 'event_id': events[0]['id'], 'interaction_type': 'like'},
-        {'user_id': users[0]['id'], 'event_id': events[1]['id'], 'interaction_type': 'going'},
-        {'user_id': users[1]['id'], 'event_id': events[1]['id'], 'interaction_type': 'like'},
-        {'user_id': users[1]['id'], 'event_id': events[2]['id'], 'interaction_type': 'dislike'},
+        {'id': 1, 'user_id': users[0]['id'], 'event_id': events[0]['id'], 'interaction_type': 'like'},
+        {'id': 2, 'user_id': users[0]['id'], 'event_id': events[1]['id'], 'interaction_type': 'going'},
+        {'id': 3, 'user_id': users[1]['id'], 'event_id': events[1]['id'], 'interaction_type': 'like'},
+        {'id': 4, 'user_id': users[1]['id'], 'event_id': events[2]['id'], 'interaction_type': 'dislike'},
     ]
     
     for interaction in interactions:
         conn.execute("""
-            INSERT INTO interactions (user_id, event_id, interaction_type)
-            VALUES (?, ?, ?)
-        """, [interaction['user_id'], interaction['event_id'], interaction['interaction_type']])
+            INSERT INTO interactions (id, user_id, event_id, interaction_type)
+            VALUES (?, ?, ?, ?)
+        """, [interaction['id'], interaction['user_id'], interaction['event_id'], interaction['interaction_type']])
     
     print(f"✓ Inserted {len(interactions)} sample interactions")
     
