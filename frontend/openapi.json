@@ -1,0 +1,606 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Copenhagen Event Recommender API",
+    "description": "Hybrid ML-powered event recommendation system for Copenhagen nightlife",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check",
+        "responses": {
+          "200": {
+            "description": "Health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/register": {
+      "post": {
+        "summary": "Register User",
+        "operationId": "register_user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{user_id}": {
+      "get": {
+        "summary": "Get User",
+        "operationId": "get_user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "Get Events",
+        "operationId": "get_events",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "neighborhood",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genres",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommend": {
+      "post": {
+        "summary": "Get Recommendations",
+        "operationId": "get_recommendations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Personalized recommendations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interactions": {
+      "post": {
+        "summary": "Record Interaction",
+        "operationId": "record_interaction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InteractionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Interaction recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "summary": "Search Events",
+        "operationId": "search_events",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EventResponse"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserPreferences": {
+        "type": "object",
+        "properties": {
+          "preferred_genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "preferred_artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "preferred_venues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "price_range": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "default": [0, 1000]
+          },
+          "preferred_times": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "default": []
+          },
+          "preferred_days": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "default": []
+          },
+          "max_distance_km": {
+            "type": "number",
+            "default": 20.0
+          },
+          "location_lat": {
+            "type": "number"
+          },
+          "location_lon": {
+            "type": "number"
+          }
+        }
+      },
+      "EventResponse": {
+        "type": "object",
+        "required": ["event_id", "title", "date_time", "venue_name", "venue_lat", "venue_lon"],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "date_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "venue_name": {
+            "type": "string"
+          },
+          "venue_lat": {
+            "type": "number"
+          },
+          "venue_lon": {
+            "type": "number"
+          },
+          "neighborhood": {
+            "type": "string"
+          },
+          "price_min": {
+            "type": "number"
+          },
+          "price_max": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "default": "DKK"
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "popularity_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0
+          },
+          "image_url": {
+            "type": "string"
+          }
+        }
+      },
+      "RecommendationRequest": {
+        "type": "object",
+        "required": ["user_preferences"],
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "user_preferences": {
+            "$ref": "#/components/schemas/UserPreferences"
+          },
+          "location_lat": {
+            "type": "number"
+          },
+          "location_lon": {
+            "type": "number"
+          },
+          "num_recommendations": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          },
+          "use_collaborative": {
+            "type": "boolean",
+            "default": true
+          },
+          "diversity_factor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.1
+          }
+        }
+      },
+      "RecommendationResponse": {
+        "type": "object",
+        "required": ["session_id", "events", "total_candidates", "model_version", "timestamp", "processing_time_ms"],
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendedEvent"
+            }
+          },
+          "total_candidates": {
+            "type": "integer"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processing_time_ms": {
+            "type": "integer"
+          },
+          "cold_start": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "RecommendedEvent": {
+        "type": "object",
+        "required": ["event", "recommendation_score", "rank"],
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/EventResponse"
+          },
+          "recommendation_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "distance_km": {
+            "type": "number"
+          },
+          "predicted_attendance": {
+            "type": "integer"
+          }
+        }
+      },
+      "InteractionRequest": {
+        "type": "object",
+        "required": ["event_id", "interaction_type"],
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "interaction_type": {
+            "type": "string",
+            "enum": ["like", "dislike", "going", "went", "save"]
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "source": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          }
+        }
+      },
+      "UserRegistrationRequest": {
+        "type": "object",
+        "required": ["user_id"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/UserPreferences"
+          },
+          "location_lat": {
+            "type": "number"
+          },
+          "location_lon": {
+            "type": "number"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": ["user_id", "created_at"],
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "preferences": {
+            "type": "object"
+          },
+          "location_lat": {
+            "type": "number"
+          },
+          "location_lon": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "interaction_count": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      },
+      "EventSearchRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "location_lat": {
+            "type": "number"
+          },
+          "location_lon": {
+            "type": "number"
+          },
+          "max_distance_km": {
+            "type": "number",
+            "minimum": 0,
+            "default": 50
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "timestamp", "version"],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "string"
+          },
+          "services": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "UserIdHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-User-ID"
+      }
+    }
+  }
+}
