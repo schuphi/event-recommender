@@ -5,7 +5,7 @@ Provides recommendation endpoints and user interaction tracking.
 """
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
-from fastapi.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import uvicorn
 import logging
