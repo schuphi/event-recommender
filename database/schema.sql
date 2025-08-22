@@ -80,7 +80,7 @@ CREATE TABLE events (
 
 -- User interactions for collaborative filtering
 CREATE TABLE interactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
     event_id TEXT NOT NULL REFERENCES events(id),
     interaction_type TEXT NOT NULL, -- like, dislike, going, went, saved
@@ -104,7 +104,7 @@ CREATE TABLE event_artists (
 
 -- Recommendation logs for evaluation and debugging
 CREATE TABLE recommendation_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
     session_id TEXT,
     request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -150,7 +150,18 @@ WHERE status = 'active'
 
 CREATE VIEW event_details AS
 SELECT 
-    e.*,
+    e.id,
+    e.title,
+    e.description,
+    e.date_time,
+    e.price_min,
+    e.price_max,
+    e.status,
+    e.venue_id,
+    e.h3_index,
+    e.source,
+    e.created_at,
+    e.updated_at,
     v.name as venue_name,
     v.neighborhood,
     v.lat as venue_lat,
@@ -162,4 +173,4 @@ SELECT
 FROM events e
 JOIN venues v ON e.venue_id = v.id
 LEFT JOIN interactions i ON e.id = i.event_id
-GROUP BY e.id;
+GROUP BY e.id, e.title, e.description, e.date_time, e.price_min, e.price_max, e.status, e.venue_id, e.h3_index, e.source, e.created_at, e.updated_at, v.name, v.neighborhood, v.lat, v.lon;
