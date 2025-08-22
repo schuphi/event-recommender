@@ -2,23 +2,24 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Copenhagen Event Recommender API",
-    "description": "Hybrid ML-powered event recommendation system for Copenhagen nightlife",
+    "description": "AI-powered event recommendations for Copenhagen nightlife",
     "version": "1.0.0"
   },
   "servers": [
     {
-      "url": "http://localhost:8000",
-      "description": "Development server"
+      "url": "http://127.0.0.1:8001",
+      "description": "Local development server"
     }
   ],
   "paths": {
     "/health": {
       "get": {
         "summary": "Health Check",
+        "description": "Health check endpoint",
         "operationId": "health_check",
         "responses": {
           "200": {
-            "description": "Health status",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
@@ -30,55 +31,18 @@
         }
       }
     },
-    "/users/register": {
-      "post": {
-        "summary": "Register User",
-        "operationId": "register_user",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserRegistrationRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "User registered successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users/{user_id}": {
+    "/": {
       "get": {
-        "summary": "Get User",
-        "operationId": "get_user",
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "summary": "Root",
+        "description": "Root endpoint with API info",
+        "operationId": "root",
         "responses": {
           "200": {
-            "description": "User information",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/RootResponse"
                 }
               }
             }
@@ -89,49 +53,15 @@
     "/events": {
       "get": {
         "summary": "Get Events",
+        "description": "Get sample events for frontend testing",
         "operationId": "get_events",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 0
-            }
-          },
-          {
-            "name": "neighborhood",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "genres",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
-            "description": "List of events",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EventResponse"
-                  }
+                  "$ref": "#/components/schemas/EventsResponse"
                 }
               }
             }
@@ -142,9 +72,9 @@
     "/recommend": {
       "post": {
         "summary": "Get Recommendations",
+        "description": "Get personalized event recommendations",
         "operationId": "get_recommendations",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -155,7 +85,7 @@
         },
         "responses": {
           "200": {
-            "description": "Personalized recommendations",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
@@ -170,29 +100,25 @@
     "/interactions": {
       "post": {
         "summary": "Record Interaction",
+        "description": "Record user interaction with events",
         "operationId": "record_interaction",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/InteractionRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Interaction recorded",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/InteractionResponse"
                 }
               }
             }
@@ -203,38 +129,25 @@
     "/search": {
       "post": {
         "summary": "Search Events",
+        "description": "Search events by query",
         "operationId": "search_events",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EventSearchRequest"
+                "$ref": "#/components/schemas/SearchRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Search results",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "query": {
-                      "type": "string"
-                    },
-                    "events": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/EventResponse"
-                      }
-                    },
-                    "count": {
-                      "type": "integer"
-                    }
-                  }
+                  "$ref": "#/components/schemas/SearchResponse"
                 }
               }
             }
@@ -245,361 +158,300 @@
   },
   "components": {
     "schemas": {
-      "UserPreferences": {
+      "HealthResponse": {
         "type": "object",
         "properties": {
-          "preferred_genres": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
+          "status": {
+            "type": "string",
+            "example": "healthy"
           },
-          "preferred_artists": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-20T15:30:00"
           },
-          "preferred_venues": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
+          "service": {
+            "type": "string",
+            "example": "copenhagen-event-recommender"
+          }
+        },
+        "required": ["status", "timestamp", "service"]
+      },
+      "RootResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Copenhagen Event Recommender API"
           },
-          "price_range": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            },
-            "minItems": 2,
-            "maxItems": 2,
-            "default": [0, 1000]
+          "version": {
+            "type": "string",
+            "example": "1.0.0"
           },
-          "preferred_times": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            },
-            "default": []
+          "docs": {
+            "type": "string",
+            "example": "/docs"
           },
-          "preferred_days": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            },
-            "default": []
-          },
-          "max_distance_km": {
-            "type": "number",
-            "default": 20.0
-          },
-          "location_lat": {
-            "type": "number"
-          },
-          "location_lon": {
-            "type": "number"
+          "health": {
+            "type": "string",
+            "example": "/health"
           }
         }
       },
-      "EventResponse": {
+      "Venue": {
         "type": "object",
-        "required": ["event_id", "title", "date_time", "venue_name", "venue_lat", "venue_lon"],
         "properties": {
-          "event_id": {
-            "type": "string"
+          "name": {
+            "type": "string",
+            "example": "Culture Box"
+          },
+          "address": {
+            "type": "string",
+            "example": "Kronprinsensgade 54A, 1306 København"
+          },
+          "neighborhood": {
+            "type": "string",
+            "example": "Indre By"
+          }
+        },
+        "required": ["name", "address", "neighborhood"]
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "event_1"
           },
           "title": {
-            "type": "string"
+            "type": "string",
+            "example": "Techno Night at Culture Box"
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "example": "Underground techno experience in Copenhagen's premier electronic venue"
           },
           "date_time": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2024-01-20T22:00:00"
           },
-          "venue_name": {
-            "type": "string"
-          },
-          "venue_lat": {
-            "type": "number"
-          },
-          "venue_lon": {
-            "type": "number"
-          },
-          "neighborhood": {
-            "type": "string"
+          "venue": {
+            "$ref": "#/components/schemas/Venue"
           },
           "price_min": {
-            "type": "number"
+            "type": "number",
+            "example": 150
           },
           "price_max": {
-            "type": "number"
-          },
-          "currency": {
-            "type": "string",
-            "default": "DKK"
+            "type": "number",
+            "example": 200
           },
           "genres": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "default": []
+            "example": ["techno", "electronic"]
           },
-          "artists": {
+          "source": {
+            "type": "string",
+            "example": "manual"
+          }
+        },
+        "required": ["id", "title", "date_time", "venue"]
+      },
+      "EventsResponse": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 2
+          }
+        },
+        "required": ["events", "total"]
+      },
+      "RecommendationRequest": {
+        "type": "object",
+        "properties": {
+          "user_preferences": {
+            "type": "object",
+            "properties": {
+              "preferred_genres": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": ["techno", "house"]
+              }
+            }
+          },
+          "location_lat": {
+            "type": "number",
+            "example": 55.6761
+          },
+          "location_lon": {
+            "type": "number",
+            "example": 12.5683
+          },
+          "num_recommendations": {
+            "type": "integer",
+            "example": 20
+          }
+        }
+      },
+      "Recommendation": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "example": "event_1"
+          },
+          "score": {
+            "type": "number",
+            "example": 0.92
+          },
+          "reasons": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "default": []
+            "example": ["Matches your techno preferences", "Popular venue", "Good time slot"]
           },
-          "popularity_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-            "default": 0
-          },
-          "image_url": {
-            "type": "string"
+          "explanation": {
+            "type": "string",
+            "example": "Recommended because you like electronic music and Culture Box is highly rated"
           }
-        }
-      },
-      "RecommendationRequest": {
-        "type": "object",
-        "required": ["user_preferences"],
-        "properties": {
-          "user_id": {
-            "type": "string"
-          },
-          "user_preferences": {
-            "$ref": "#/components/schemas/UserPreferences"
-          },
-          "location_lat": {
-            "type": "number"
-          },
-          "location_lon": {
-            "type": "number"
-          },
-          "num_recommendations": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 50,
-            "default": 10
-          },
-          "use_collaborative": {
-            "type": "boolean",
-            "default": true
-          },
-          "diversity_factor": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-            "default": 0.1
-          }
-        }
+        },
+        "required": ["event_id", "score", "reasons", "explanation"]
       },
       "RecommendationResponse": {
         "type": "object",
-        "required": ["session_id", "events", "total_candidates", "model_version", "timestamp", "processing_time_ms"],
         "properties": {
-          "user_id": {
-            "type": "string"
-          },
-          "session_id": {
-            "type": "string"
-          },
-          "events": {
+          "recommendations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecommendedEvent"
+              "$ref": "#/components/schemas/Recommendation"
             }
           },
-          "total_candidates": {
-            "type": "integer"
-          },
-          "model_version": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "processing_time_ms": {
-            "type": "integer"
-          },
-          "cold_start": {
-            "type": "boolean",
-            "default": false
-          }
-        }
-      },
-      "RecommendedEvent": {
-        "type": "object",
-        "required": ["event", "recommendation_score", "rank"],
-        "properties": {
-          "event": {
-            "$ref": "#/components/schemas/EventResponse"
-          },
-          "recommendation_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "rank": {
+          "total": {
             "type": "integer",
-            "minimum": 1
+            "example": 2
           },
-          "distance_km": {
-            "type": "number"
-          },
-          "predicted_attendance": {
-            "type": "integer"
+          "request_id": {
+            "type": "string",
+            "example": "req_1642694400.123"
           }
-        }
+        },
+        "required": ["recommendations", "total", "request_id"]
       },
       "InteractionRequest": {
         "type": "object",
-        "required": ["event_id", "interaction_type"],
         "properties": {
-          "user_id": {
-            "type": "string"
-          },
           "event_id": {
-            "type": "string"
+            "type": "string",
+            "example": "event_123"
           },
           "interaction_type": {
             "type": "string",
-            "enum": ["like", "dislike", "going", "went", "save"]
-          },
-          "rating": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 5
+            "enum": ["like", "dislike", "going", "went", "saved"],
+            "example": "like"
           },
           "source": {
-            "type": "string"
+            "type": "string",
+            "example": "feed"
           },
           "position": {
-            "type": "integer"
-          }
-        }
-      },
-      "UserRegistrationRequest": {
-        "type": "object",
-        "required": ["user_id"],
-        "properties": {
-          "user_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "preferences": {
-            "$ref": "#/components/schemas/UserPreferences"
-          },
-          "location_lat": {
-            "type": "number"
-          },
-          "location_lon": {
-            "type": "number"
-          }
-        }
-      },
-      "UserResponse": {
-        "type": "object",
-        "required": ["user_id", "created_at"],
-        "properties": {
-          "user_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "preferences": {
-            "type": "object"
-          },
-          "location_lat": {
-            "type": "number"
-          },
-          "location_lon": {
-            "type": "number"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "interaction_count": {
             "type": "integer",
-            "default": 0
+            "example": 3
           }
-        }
+        },
+        "required": ["event_id", "interaction_type"]
       },
-      "EventSearchRequest": {
+      "InteractionResponse": {
         "type": "object",
-        "required": ["query"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "interaction_id": {
+            "type": "string",
+            "example": "int_1642694400.123"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-20T15:30:00"
+          }
+        },
+        "required": ["success", "interaction_id", "recorded_at"]
+      },
+      "SearchRequest": {
+        "type": "object",
         "properties": {
           "query": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 200
+            "example": "techno tonight"
           },
           "location_lat": {
-            "type": "number"
+            "type": "number",
+            "example": 55.6761
           },
           "location_lon": {
-            "type": "number"
-          },
-          "max_distance_km": {
             "type": "number",
-            "minimum": 0,
-            "default": 50
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 100,
-            "default": 20
+            "example": 12.5683
           }
-        }
+        },
+        "required": ["query"]
       },
-      "HealthResponse": {
+      "SearchResult": {
         "type": "object",
-        "required": ["status", "timestamp", "version"],
         "properties": {
-          "status": {
-            "type": "string"
-          },
-          "timestamp": {
+          "id": {
             "type": "string",
-            "format": "date-time"
+            "example": "event_1"
           },
-          "version": {
-            "type": "string"
+          "title": {
+            "type": "string",
+            "example": "Techno Night at Culture Box"
           },
-          "services": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
+          "relevance": {
+            "type": "number",
+            "example": 0.95
+          },
+          "match_type": {
+            "type": "string",
+            "example": "title"
           }
-        }
-      }
-    },
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
+        },
+        "required": ["id", "title", "relevance"]
       },
-      "UserIdHeader": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-User-ID"
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            }
+          },
+          "query": {
+            "type": "string",
+            "example": "techno tonight"
+          },
+          "total": {
+            "type": "integer",
+            "example": 1
+          }
+        },
+        "required": ["results", "query", "total"]
       }
     }
   }
