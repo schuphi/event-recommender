@@ -52,8 +52,8 @@ class LangChainRecommender:
     
     def __init__(
         self,
-        db_path: str = "events.db",
-        embedding_model: str = "all-MiniLM-L6-v2",
+        db_path: str = "data/events.duckdb",
+        embedding_model: str = "all-MiniLM-L6-v2", 
         llm_model: str = "gpt-3.5-turbo",
         vector_store_path: str = "vector_store"
     ):
