@@ -5,7 +5,9 @@
       "Bash(python:*)",
       "Bash(curl:*)",
       "Bash(find:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(pip install:*)",
+      "Bash(set DATABASE_URL=C:UsersPhilippSchumacherprivatevent-recommenderdataevents.duckdb)"
     ],
     "deny": [],
     "ask": []

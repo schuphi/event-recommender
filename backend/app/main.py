@@ -14,19 +14,24 @@ from typing import List, Optional, Dict
 import os
 from datetime import datetime
 
-from .models.requests import (
+# Fix relative imports for direct execution
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
+
+from models.requests import (
     RecommendationRequest, UserPreferencesRequest, InteractionRequest,
     UserRegistrationRequest, EventSearchRequest
 )
-from .models.responses import (
+from models.responses import (
     RecommendationResponse, EventResponse, UserResponse, 
     HealthResponse, AnalyticsResponse
 )
-from .services.recommendation_service import RecommendationService
-from .services.database_service import DatabaseService
-from .services.analytics_service import AnalyticsService
-from .core.config import Settings
-from .core.dependencies import get_current_user, get_db_service
+from services.recommendation_service import RecommendationService
+from services.database_service import DatabaseService
+from services.analytics_service import AnalyticsService
+from core.config import Settings
+from core.dependencies import get_current_user, get_db_service
 
 # Configure logging
 logging.basicConfig(
@@ -250,24 +255,8 @@ async def get_events(
             genres=genre_list
         )
         
-        return [
-            EventResponse(
-                event_id=event.id,
-                title=event.title,
-                description=event.description,
-                date_time=event.date_time,
-                venue_name=event.venue_name,
-                venue_lat=event.venue_lat,
-                venue_lon=event.venue_lon,
-                price_min=event.price_min,
-                price_max=event.price_max,
-                genres=event.genres,
-                artists=event.artists,
-                popularity_score=event.popularity_score,
-                image_url=event.image_url
-            )
-            for event in events
-        ]
+        # Events are already EventResponse objects from DatabaseService
+        return events
         
     except Exception as e:
         logger.error(f"Get events failed: {e}")
@@ -285,21 +274,8 @@ async def get_event(
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
         
-        return EventResponse(
-            event_id=event.id,
-            title=event.title,
-            description=event.description,
-            date_time=event.date_time,
-            venue_name=event.venue_name,
-            venue_lat=event.venue_lat,
-            venue_lon=event.venue_lon,
-            price_min=event.price_min,
-            price_max=event.price_max,
-            genres=event.genres,
-            artists=event.artists,
-            popularity_score=event.popularity_score,
-            image_url=event.image_url
-        )
+        # Event is already an EventResponse object
+        return event
         
     except HTTPException:
         raise
