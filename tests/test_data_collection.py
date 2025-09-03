@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 import json
 import tempfile
 import os
-from typing import List, Dict
+import time
+from typing import List, Dict, Tuple
 
 
 class TestEventbriteScraperBasic:
