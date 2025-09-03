@@ -19,10 +19,10 @@ class TestEventbriteScraperBasic:
     def test_scraper_initialization(self):
         """Test Eventbrite scraper can be initialized."""
         from data_collection.scrapers.official_apis.eventbrite import (
-            EventbriteEventScraper,
+            EventbriteScraper,
         )
 
-        scraper = EventbriteEventScraper()
+        scraper = EventbriteScraper()
         assert scraper is not None
         assert hasattr(scraper, "scrape_events")
 
@@ -30,7 +30,7 @@ class TestEventbriteScraperBasic:
     def test_eventbrite_api_call(self, mock_get):
         """Test Eventbrite API call handling."""
         from data_collection.scrapers.official_apis.eventbrite import (
-            EventbriteEventScraper,
+            EventbriteScraper,
         )
 
         # Mock successful API response
@@ -54,7 +54,7 @@ class TestEventbriteScraperBasic:
         }
         mock_get.return_value = mock_response
 
-        scraper = EventbriteEventScraper(api_token="test_token")
+        scraper = EventbriteScraper(api_token="test_token")
         events = scraper.scrape_events(location="Copenhagen", max_events=10)
 
         assert isinstance(events, list)
@@ -66,7 +66,7 @@ class TestEventbriteScraperBasic:
     def test_eventbrite_error_handling(self, mock_get):
         """Test Eventbrite API error handling."""
         from data_collection.scrapers.official_apis.eventbrite import (
-            EventbriteEventScraper,
+            EventbriteScraper,
         )
 
         # Mock API error
@@ -75,7 +75,7 @@ class TestEventbriteScraperBasic:
         mock_response.raise_for_status.side_effect = Exception("Rate limited")
         mock_get.return_value = mock_response
 
-        scraper = EventbriteEventScraper(api_token="test_token")
+        scraper = EventbriteScraper(api_token="test_token")
         events = scraper.scrape_events(location="Copenhagen")
 
         # Should handle error gracefully
@@ -88,16 +88,16 @@ class TestMeetupScraper:
 
     def test_meetup_scraper_initialization(self):
         """Test Meetup scraper initialization."""
-        from data_collection.scrapers.official_apis.meetup import MeetupEventScraper
+        from data_collection.scrapers.official_apis.meetup import MeetupScraper
 
-        scraper = MeetupEventScraper()
+        scraper = MeetupScraper()
         assert scraper is not None
         assert hasattr(scraper, "scrape_events")
 
     @patch("requests.get")
     def test_meetup_events_parsing(self, mock_get):
         """Test Meetup events parsing."""
-        from data_collection.scrapers.official_apis.meetup import MeetupEventScraper
+        from data_collection.scrapers.official_apis.meetup import MeetupScraper
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -122,7 +122,7 @@ class TestMeetupScraper:
         }
         mock_get.return_value = mock_response
 
-        scraper = MeetupEventScraper()
+        scraper = MeetupScraper()
         events = scraper.scrape_events(location="Copenhagen")
 
         assert isinstance(events, list)
@@ -415,17 +415,17 @@ class TestDuplicateDetection:
 
     def test_detector_initialization(self):
         """Test duplicate detector initialization."""
-        from data_collection.deduplication.duplicate_detector import DuplicateDetector
+        from data_collection.deduplication.duplicate_detector import EventDuplicateDetector
 
-        detector = DuplicateDetector()
+        detector = EventDuplicateDetector()
         assert detector is not None
         assert hasattr(detector, "detect_duplicates")
 
     def test_exact_duplicate_detection(self):
         """Test detection of exact duplicates."""
-        from data_collection.deduplication.duplicate_detector import DuplicateDetector
+        from data_collection.deduplication.duplicate_detector import EventDuplicateDetector
 
-        detector = DuplicateDetector()
+        detector = EventDuplicateDetector()
 
         events = [
             {
@@ -451,9 +451,9 @@ class TestDuplicateDetection:
 
     def test_fuzzy_duplicate_detection(self):
         """Test detection of fuzzy duplicates."""
-        from data_collection.deduplication.duplicate_detector import DuplicateDetector
+        from data_collection.deduplication.duplicate_detector import EventDuplicateDetector
 
-        detector = DuplicateDetector(similarity_threshold=0.7)
+        detector = EventDuplicateDetector(similarity_threshold=0.7)
 
         events = [
             {
@@ -480,9 +480,9 @@ class TestDuplicateDetection:
 
     def test_venue_name_normalization(self):
         """Test venue name normalization for duplicate detection."""
-        from data_collection.deduplication.duplicate_detector import DuplicateDetector
+        from data_collection.deduplication.duplicate_detector import EventDuplicateDetector
 
-        detector = DuplicateDetector()
+        detector = EventDuplicateDetector()
 
         # Test various venue name variations
         variations = [
@@ -505,20 +505,23 @@ class TestIntegratedPipeline:
         """Test pipeline initialization."""
         from data_collection.pipeline.integrated_data_pipeline import (
             IntegratedDataPipeline,
+            PipelineConfig,
         )
 
-        pipeline = IntegratedDataPipeline()
+        config = PipelineConfig()
+        pipeline = IntegratedDataPipeline(config)
         assert pipeline is not None
-        assert hasattr(pipeline, "run_collection")
+        assert hasattr(pipeline, "run_pipeline")
 
     @patch(
-        "data-collection.scrapers.eventbrite_scraper.EventbriteEventScraper.scrape_events"
+        "data_collection.scrapers.official_apis.eventbrite.EventbriteScraper.scrape_events"
     )
-    @patch("data-collection.scrapers.meetup_scraper.MeetupEventScraper.scrape_events")
+    @patch("data_collection.scrapers.official_apis.meetup.MeetupScraper.scrape_events")
     def test_multi_source_collection(self, mock_meetup, mock_eventbrite):
         """Test collection from multiple sources."""
         from data_collection.pipeline.integrated_data_pipeline import (
             IntegratedDataPipeline,
+            PipelineConfig,
         )
 
         # Mock scraper responses
@@ -529,7 +532,8 @@ class TestIntegratedPipeline:
             {"id": "mu_1", "title": "Meetup Event", "source": "meetup"}
         ]
 
-        pipeline = IntegratedDataPipeline()
+        config = PipelineConfig()
+        pipeline = IntegratedDataPipeline(config)
 
         # Mock configuration
         config = Mock()
@@ -552,9 +556,11 @@ class TestIntegratedPipeline:
         """Test pipeline error handling when scrapers fail."""
         from data_collection.pipeline.integrated_data_pipeline import (
             IntegratedDataPipeline,
+            PipelineConfig,
         )
 
-        pipeline = IntegratedDataPipeline()
+        config = PipelineConfig()
+        pipeline = IntegratedDataPipeline(config)
 
         # Mock failing scraper
         with patch.object(pipeline, "_collect_eventbrite_events") as mock_eventbrite:
@@ -576,9 +582,11 @@ class TestIntegratedPipeline:
         """Test data quality metrics calculation."""
         from data_collection.pipeline.integrated_data_pipeline import (
             IntegratedDataPipeline,
+            PipelineConfig,
         )
 
-        pipeline = IntegratedDataPipeline()
+        config = PipelineConfig()
+        pipeline = IntegratedDataPipeline(config)
 
         events = [
             {"id": "1", "title": "Event 1", "validation_status": "valid"},
@@ -663,11 +671,11 @@ class TestPerformanceAndScaling:
         """Test concurrent scraping performance."""
         from concurrent.futures import ThreadPoolExecutor
         from data_collection.scrapers.official_apis.eventbrite import (
-            EventbriteEventScraper,
+            EventbriteScraper,
         )
 
         def mock_scrape():
-            scraper = EventbriteEventScraper()
+            scraper = EventbriteScraper()
             # Simulate API call delay
             import time
 
