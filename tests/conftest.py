@@ -20,6 +20,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "ml"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "data-collection"))
 
+# Handle hyphenated directory name for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import importlib.util
+
+# Create alias for data-collection -> data_collection
+spec = importlib.util.spec_from_file_location("data_collection", Path(__file__).parent.parent / "data-collection" / "__init__.py")
+if spec and spec.loader:
+    data_collection_module = importlib.util.module_from_spec(spec)
+    sys.modules["data_collection"] = data_collection_module
+
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.core.config import Settings

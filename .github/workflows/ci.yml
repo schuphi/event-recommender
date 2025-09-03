@@ -108,6 +108,7 @@ jobs:
       run: |
         mkdir -p data logs cache models
         export DATABASE_URL="test_events.duckdb"
+        export PYTHONPATH="${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/backend:${GITHUB_WORKSPACE}/ml:${GITHUB_WORKSPACE}/data-collection"
     
     - name: Run tests with coverage
       run: |
@@ -115,6 +116,7 @@ jobs:
       env:
         DATABASE_URL: test_events.duckdb
         TESTING: true
+        PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend:${{ github.workspace }}/ml:${{ github.workspace }}/data-collection
     
     - name: Upload test results
       uses: actions/upload-artifact@v3
@@ -150,6 +152,7 @@ jobs:
       env:
         DATABASE_URL: test_events.duckdb
         TESTING: true
+        PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend:${{ github.workspace }}/ml:${{ github.workspace }}/data-collection
     
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
