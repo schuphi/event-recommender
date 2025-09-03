@@ -52,7 +52,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload SAST reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: sast-reports
@@ -96,7 +96,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload dependency reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: dependency-reports
@@ -143,7 +143,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload Docker security reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: docker-security-reports
@@ -189,7 +189,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload IaC security reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: iac-security-reports
@@ -224,7 +224,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload license report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: license-report
@@ -257,7 +257,7 @@ jobs:
         TESTING: true
     
     - name: Upload security test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-test-results
@@ -272,7 +272,7 @@ jobs:
     
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
     
     - name: Generate consolidated security report
       run: |
@@ -295,7 +295,7 @@ jobs:
         EOF
     
     - name: Upload consolidated report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-summary
         path: security-summary.md
@@ -318,35 +318,17 @@ jobs:
     if: failure()
     
     steps:
-    - name: Create security issue
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const title = `Security Scan Alert - ${new Date().toISOString().split('T')[0]}`;
-          const body = `
-          ## 🚨 Security Scan Alert
-          
-          One or more security scans have failed or found critical issues.
-          
-          **Failed Jobs:**
-          - SAST: ${{ needs.sast.result }}
-          - Dependency Scan: ${{ needs.dependency-scan.result }}
-          - Docker Security: ${{ needs.docker-security.result }}
-          
-          **Workflow:** ${{ github.workflow }}
-          **Run:** ${{ github.run_id }}
-          **Commit:** ${{ github.sha }}
-          
-          Please review the scan results and address any critical vulnerabilities immediately.
-          `;
-          
-          github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title: title,
-            body: body,
-            labels: ['security', 'priority-high']
-          });
+    - name: Log security alert
+      run: |
+        echo "🚨 Security Scan Alert - $(date)"
+        echo "Failed Jobs:"
+        echo "- SAST: ${{ needs.sast.result }}"
+        echo "- Dependency Scan: ${{ needs.dependency-scan.result }}"
+        echo "- Docker Security: ${{ needs.docker-security.result }}"
+        echo "Workflow: ${{ github.workflow }}"
+        echo "Run: ${{ github.run_id }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "Please review scan results and address critical vulnerabilities."
 
   # Cleanup
   cleanup:
