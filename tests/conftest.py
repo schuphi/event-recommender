@@ -60,7 +60,7 @@ def test_settings():
         DATABASE_URL=TEST_DATABASE_URL,
         API_HOST="localhost",
         API_PORT=8001,
-        CORS_ORIGINS=["http://localhost:3000", "http://testserver"],
+        API_CORS_ORIGINS=["http://localhost:3000", "http://testserver"],
         JWT_SECRET_KEY="test-secret-key-for-testing-only",
         ENABLE_METRICS=True,
         LOG_LEVEL="INFO",
