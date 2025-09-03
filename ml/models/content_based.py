@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from ..embeddings.content_embedder import ContentEmbedder, EventFeatures
+from ml.embeddings.content_embedder import ContentEmbedder, EventFeatures
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -12,9 +12,9 @@ from typing import List, Dict, Tuple
 from datetime import datetime
 import numpy as np
 
-from ..models.content_based import ContentBasedRecommender
-from ..models.collaborative_filtering import CollaborativeFilteringRecommender
-from ..embeddings.content_embedder import ContentEmbedder
+from ml.models.content_based import ContentBasedRecommender
+from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
+from ml.embeddings.content_embedder import ContentEmbedder
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -389,7 +389,7 @@ class ModelTrainer:
         """Infer user preferences from their interaction history."""
         # This is a simplified implementation
         # In practice, you'd analyze the user's interaction history
-        from ..models.content_based import UserPreferences
+        from ml.models.content_based import UserPreferences
         
         # Return a default preference for evaluation
         return UserPreferences(

@@ -18,13 +18,13 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))  # For ML modules
 
-from models.requests import UserPreferencesRequest, RecommendationFilters, DateFilter
-from models.responses import (
+from backend.app.models.requests import UserPreferencesRequest, RecommendationFilters, DateFilter
+from backend.app.models.responses import (
     RecommendationResponse, RecommendedEvent, EventResponse, RecommendationExplanation,
     ModelStatusResponse
 )
-from core.config import settings
-from services.custom_collaborative_filter import SingleUserCollaborativeFilter
+from backend.app.core.config import settings
+from backend.app.services.custom_collaborative_filter import SingleUserCollaborativeFilter
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class RecommendationService:
     def _load_langchain_recommender(self):
         """Load LangChain recommender for semantic search."""
         try:
-            from services.langchain_recommender import recommender
+            from backend.app.services.langchain_recommender import recommender
             self._langchain_recommender = recommender
             logger.info("LangChain recommender loaded")
             
@@ -263,7 +263,7 @@ class RecommendationService:
             logger.info(f"Generating recommendations for user {user_id}, session {session_id}")
             
             # Get candidate events from database
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             # Apply basic filters to get candidate events
@@ -545,7 +545,7 @@ class RecommendationService:
         
         try:
             # Get user's interaction history
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             # Get user interactions
@@ -652,7 +652,7 @@ class RecommendationService:
         
         try:
             # Get the source event
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             source_event = await db.get_event(event_id)
             
@@ -786,7 +786,7 @@ class RecommendationService:
                 )
                 
                 # Convert search results to EventResponse
-                from services.database_service import DatabaseService
+                from backend.app.services.database_service import DatabaseService
                 db = DatabaseService()
                 
                 events = []
@@ -806,7 +806,7 @@ class RecommendationService:
     
     async def _simple_text_search(self, query: str, limit: int) -> List[EventResponse]:
         """Simple text search fallback."""
-        from services.database_service import DatabaseService
+        from backend.app.services.database_service import DatabaseService
         
         db = DatabaseService()
         all_events = await db.get_events(limit=100)
@@ -915,7 +915,7 @@ class RecommendationService:
         """Generate fallback recommendations when main pipeline fails."""
         
         try:
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             # Get popular events as fallback
