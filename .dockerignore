@@ -1,0 +1,114 @@
+# Copenhagen Event Recommender - Docker ignore file
+# Exclude unnecessary files from Docker build context
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+test_reports/
+coverage_html/
+
+# Logs
+*.log
+logs/
+.logs/
+
+# Database files
+*.db
+*.duckdb
+*.sqlite
+data/
+
+# Models and cache
+models/
+cache/
+*.pkl
+*.joblib
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/_build/
+
+# Temporary files
+*.tmp
+*.temp
+.temporary/
+
+# Development files
+Dockerfile.dev
+docker-compose.dev.yml
+docker-compose.override.yml
+
+# Local configuration
+.env.local
+.env.development
+.env.production
+config.local.yaml
+
+# Backup files
+*.bak
+*.backup
+
+# Node modules (if any frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# SSL certificates (should be mounted)
+ssl/
+certs/
+
+# Large test files
+test_data/
+sample_data/
+
+# CI/CD
+.github/workflows/
+.gitlab-ci.yml
+.travis.yml

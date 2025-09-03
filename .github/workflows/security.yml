@@ -1,0 +1,362 @@
+# Copenhagen Event Recommender - Security Scanning Pipeline
+# Advanced security monitoring and vulnerability detection
+
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans weekly on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+
+jobs:
+  # Static Application Security Testing (SAST)
+  sast:
+    runs-on: ubuntu-latest
+    name: Static Security Analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install security tools
+      run: |
+        pip install bandit semgrep safety
+        pip install -r requirements.txt
+    
+    - name: Run Bandit (Python security linter)
+      run: |
+        bandit -r backend/ ml/ data-collection/ \
+               -f json -o bandit-report.json \
+               -ll -x */tests/*
+      continue-on-error: true
+    
+    - name: Run Semgrep (multi-language security scanner)
+      run: |
+        python -m semgrep --config=auto --json --output=semgrep-report.json .
+      continue-on-error: true
+    
+    - name: Check for hardcoded secrets
+      run: |
+        python -m semgrep --config=r/secrets --json --output=secrets-report.json .
+      continue-on-error: true
+    
+    - name: Upload SAST reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: sast-reports
+        path: |
+          bandit-report.json
+          semgrep-report.json
+          secrets-report.json
+
+  # Dependency Vulnerability Scanning
+  dependency-scan:
+    runs-on: ubuntu-latest
+    name: Dependency Vulnerability Scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install safety pip-audit
+    
+    - name: Run Safety (known vulnerabilities)
+      run: |
+        safety check --json --output safety-report.json
+      continue-on-error: true
+    
+    - name: Run pip-audit (PyPI vulnerabilities)
+      run: |
+        pip-audit --format=json --output=pip-audit-report.json
+      continue-on-error: true
+    
+    - name: Check for outdated packages
+      run: |
+        pip list --outdated --format=json > outdated-packages.json
+      continue-on-error: true
+    
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-reports
+        path: |
+          safety-report.json
+          pip-audit-report.json
+          outdated-packages.json
+
+  # Docker Image Security Scanning
+  docker-security:
+    runs-on: ubuntu-latest
+    name: Docker Image Security
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: |
+        docker build -t event-recommender:security-test .
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'event-recommender:security-test'
+        format: 'json'
+        output: 'trivy-report.json'
+    
+    - name: Run Docker Bench for Security
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                   -v $(pwd):/host \
+                   docker/docker-bench-security \
+                   -c container_images -l /host/docker-bench-report.log
+      continue-on-error: true
+    
+    - name: Scan for secrets in Docker image
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                   -v $(pwd):/tmp \
+                   trufflesecurity/trufflehog:latest \
+                   docker --image event-recommender:security-test \
+                   --json > docker-secrets-scan.json
+      continue-on-error: true
+    
+    - name: Upload Docker security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: docker-security-reports
+        path: |
+          trivy-report.json
+          docker-bench-report.log
+          docker-secrets-scan.json
+
+  # Infrastructure as Code Security
+  iac-security:
+    runs-on: ubuntu-latest
+    name: Infrastructure Security
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install security scanners
+      run: |
+        # Install Checkov for infrastructure security
+        pip install checkov
+        
+        # Install Docker Compose security scanner
+        curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        chmod +x /usr/local/bin/docker-compose
+    
+    - name: Scan Docker Compose files
+      run: |
+        checkov -f docker-compose.yml --framework docker-compose \
+                --output json --output-file checkov-docker-compose.json
+      continue-on-error: true
+    
+    - name: Scan Dockerfiles
+      run: |
+        checkov -f Dockerfile --framework dockerfile \
+                --output json --output-file checkov-dockerfile.json
+      continue-on-error: true
+    
+    - name: Scan Nginx configuration
+      run: |
+        checkov -f nginx.conf --framework nginx \
+                --output json --output-file checkov-nginx.json
+      continue-on-error: true
+    
+    - name: Upload IaC security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: iac-security-reports
+        path: |
+          checkov-docker-compose.json
+          checkov-dockerfile.json
+          checkov-nginx.json
+
+  # License Compliance Check
+  license-check:
+    runs-on: ubuntu-latest
+    name: License Compliance
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install license checker
+      run: |
+        pip install pip-licenses licensecheck
+    
+    - name: Generate license report
+      run: |
+        pip install -r requirements.txt
+        pip-licenses --format=json --output-file=licenses.json
+        licensecheck --zero
+      continue-on-error: true
+    
+    - name: Upload license report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: license-report
+        path: licenses.json
+
+  # Security Test Suite
+  security-tests:
+    runs-on: ubuntu-latest
+    name: Security Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Run security-focused tests
+      run: |
+        python run_tests.py security
+      env:
+        DATABASE_URL: test_events.duckdb
+        TESTING: true
+    
+    - name: Upload security test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-test-results
+        path: test_reports/
+
+  # Generate Security Report
+  security-report:
+    runs-on: ubuntu-latest
+    name: Generate Security Report
+    needs: [sast, dependency-scan, docker-security, iac-security, license-check, security-tests]
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Generate consolidated security report
+      run: |
+        cat > security-summary.md << 'EOF'
+        # Security Scan Results
+        
+        ## Scan Status
+        - SAST Scan: ${{ needs.sast.result }}
+        - Dependency Scan: ${{ needs.dependency-scan.result }}  
+        - Docker Security: ${{ needs.docker-security.result }}
+        - Infrastructure Security: ${{ needs.iac-security.result }}
+        - License Check: ${{ needs.license-check.result }}
+        - Security Tests: ${{ needs.security-tests.result }}
+        
+        ## Report Generation Date
+        $(date -u)
+        
+        ## Next Steps
+        Review individual scan reports for detailed findings and remediation steps.
+        EOF
+    
+    - name: Upload consolidated report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-summary
+        path: security-summary.md
+    
+    - name: Post security status
+      run: |
+        if [ "${{ needs.sast.result }}" = "success" ] && 
+           [ "${{ needs.dependency-scan.result }}" = "success" ] &&
+           [ "${{ needs.docker-security.result }}" = "success" ]; then
+          echo "✅ All critical security scans passed"
+        else
+          echo "⚠️  Some security scans reported issues - review artifacts"
+        fi
+
+  # Security Alert on Critical Issues
+  security-alert:
+    runs-on: ubuntu-latest
+    name: Security Alert
+    needs: [sast, dependency-scan, docker-security]
+    if: failure()
+    
+    steps:
+    - name: Create security issue
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const title = `Security Scan Alert - ${new Date().toISOString().split('T')[0]}`;
+          const body = `
+          ## 🚨 Security Scan Alert
+          
+          One or more security scans have failed or found critical issues.
+          
+          **Failed Jobs:**
+          - SAST: ${{ needs.sast.result }}
+          - Dependency Scan: ${{ needs.dependency-scan.result }}
+          - Docker Security: ${{ needs.docker-security.result }}
+          
+          **Workflow:** ${{ github.workflow }}
+          **Run:** ${{ github.run_id }}
+          **Commit:** ${{ github.sha }}
+          
+          Please review the scan results and address any critical vulnerabilities immediately.
+          `;
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['security', 'priority-high']
+          });
+
+  # Cleanup
+  cleanup:
+    runs-on: ubuntu-latest
+    name: Cleanup
+    needs: [security-report]
+    if: always()
+    
+    steps:
+    - name: Clean up Docker images
+      run: |
+        docker system prune -af
+        echo "Docker cleanup completed"
