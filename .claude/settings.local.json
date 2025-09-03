@@ -17,7 +17,10 @@
       "Bash(DISABLE_TORCH=true python -m pytest tests/test_database.py::TestDatabaseConnection::test_database_service_initialization -v)",
       "Bash(DISABLE_TORCH=true python -m pytest tests/test_database.py::TestDatabaseConnection::test_database_service_initialization -v --tb=short)",
       "Bash(DISABLE_TORCH=true python -m pytest --collect-only tests/)",
-      "Bash(set DISABLE_TORCH=true)"
+      "Bash(set DISABLE_TORCH=true)",
+      "Bash(rm:*)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash($env:DISABLE_TORCH=\"true\")"
     ],
     "deny": [],
     "ask": []
