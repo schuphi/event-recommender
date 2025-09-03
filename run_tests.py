@@ -174,6 +174,8 @@ def check_test_dependencies():
         "requests",
         "duckdb",
         "fastapi",
+        "jwt",
+        "geopy",
     ]
     
     # Only check torch if not disabled
