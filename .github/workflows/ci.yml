@@ -74,7 +74,7 @@ jobs:
     - name: Security scanning (Bandit)
       run: |
         echo "Running bandit security scan"
-        bandit -r backend/ ml/ data-collection/ -f json -o security-report.json 2>&1 || echo "Bandit failed with exit code $?"
+        bandit -r backend/ ml/ data-collection/ -f json -o security-report.json --configfile .bandit 2>&1 || echo "Bandit failed with exit code $?"
       continue-on-error: true
     
     - name: Upload security report
