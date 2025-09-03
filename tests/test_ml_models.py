@@ -115,7 +115,7 @@ class TestCollaborativeFiltering:
     
     def test_model_initialization(self):
         """Test collaborative filtering model initialization."""
-        from ml.models.collaborative import CollaborativeFilteringRecommender
+        from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
         
         model = CollaborativeFilteringRecommender()
         assert model is not None
@@ -124,7 +124,7 @@ class TestCollaborativeFiltering:
     
     def test_user_item_matrix_creation(self, ml_test_data):
         """Test user-item interaction matrix creation."""
-        from ml.models.collaborative import CollaborativeFilteringRecommender
+        from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
         
         model = CollaborativeFilteringRecommender()
         interactions = ml_test_data['training_interactions']
@@ -137,7 +137,7 @@ class TestCollaborativeFiltering:
     
     def test_matrix_factorization_training(self, ml_test_data):
         """Test matrix factorization model training."""
-        from ml.models.collaborative import CollaborativeFilteringRecommender
+        from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
         
         model = CollaborativeFilteringRecommender(n_factors=10, n_epochs=5)
         interactions = ml_test_data['training_interactions']
@@ -151,7 +151,7 @@ class TestCollaborativeFiltering:
     
     def test_similarity_based_recommendations(self, ml_test_data):
         """Test item-item similarity recommendations."""
-        from ml.models.collaborative import CollaborativeFilteringRecommender
+        from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
         
         model = CollaborativeFilteringRecommender(method='item_similarity')
         interactions = ml_test_data['training_interactions']
