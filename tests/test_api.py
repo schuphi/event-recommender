@@ -277,6 +277,7 @@ class TestErrorHandling:
 class TestInputValidation:
     """Test input validation and sanitization."""
 
+    @pytest.mark.security
     def test_sql_injection_protection(self, client, test_db, security_test_payloads):
         """Test protection against SQL injection."""
         for payload in security_test_payloads["sql_injection"]:
@@ -289,6 +290,7 @@ class TestInputValidation:
                 content = response.text.lower()
                 assert "error" not in content or "sql" not in content
 
+    @pytest.mark.security
     def test_xss_protection(self, client, test_db, security_test_payloads):
         """Test protection against XSS attacks."""
         for payload in security_test_payloads["xss_payloads"]:
@@ -306,6 +308,7 @@ class TestInputValidation:
                 # Response should not contain raw script tags
                 assert "<script>" not in response.text
 
+    @pytest.mark.security
     def test_oversized_request_handling(self, client, security_test_payloads):
         """Test handling of oversized requests."""
         oversized_data = security_test_payloads["oversized_requests"]
