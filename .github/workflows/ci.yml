@@ -42,6 +42,11 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
     
+    - name: Install missing dependencies (fallback)
+      run: |
+        pip install PyJWT geopy || echo "Warning: Failed to install some dependencies"
+      if: always()
+    
     - name: Debug code quality tools
       run: |
         echo "=== Debug Code Quality ==="
@@ -121,6 +126,11 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
     
+    - name: Install missing dependencies (fallback)
+      run: |
+        pip install PyJWT geopy || echo "Warning: Failed to install some dependencies"
+      if: always()
+    
     - name: Create test environment
       run: |
         mkdir -p data logs cache models
@@ -140,11 +150,27 @@ jobs:
         
     - name: Run tests with coverage
       run: |
+        echo "=== Running tests for category: ${{ matrix.test-category }} ==="
         python run_tests.py ${{ matrix.test-category }} --no-coverage 2>&1
       env:
         DATABASE_URL: test_events.duckdb
         TESTING: true
         PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend:${{ github.workspace }}/ml:${{ github.workspace }}/data-collection
+    
+    - name: Debug test failures
+      if: failure()
+      run: |
+        echo "=== Test Failure Debug Information ==="
+        echo "Test category: ${{ matrix.test-category }}"
+        echo "Python version: $(python --version)"
+        echo "Current directory: $(pwd)"
+        echo "Files in current directory:"
+        ls -la
+        echo "Python path:"
+        python -c "import sys; print('\n'.join(sys.path))"
+        echo "Installed packages:"
+        pip list | grep -E "(pytest|PyJWT|geopy|duckdb|fastapi)" || echo "Key packages not found"
+        echo "=== End Debug Information ==="
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -206,8 +232,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Free up disk space
+      run: |
+        echo "=== Initial disk usage ==="
+        df -h
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        echo "=== After cleanup ==="
+        df -h
+    
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          image=moby/buildkit:buildx-stable-1
+          network=host
     
     - name: Build Docker image
       uses: docker/build-push-action@v5
@@ -218,6 +259,7 @@ jobs:
         tags: ${{ env.IMAGE_NAME }}:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        platforms: linux/amd64
     
     - name: Test Docker image
       run: |
@@ -226,12 +268,26 @@ jobs:
         curl -f http://localhost:8000/health || exit 1
         docker stop test-container
     
+    - name: Free disk space before security scan
+      run: |
+        echo "=== Disk usage before cleanup ==="
+        df -h
+        docker system prune -f
+        rm -rf /tmp/trivy-* || true
+        rm -rf ~/.cache/trivy || true
+        echo "=== Disk usage after cleanup ==="
+        df -h
+    
     - name: Run security scan on image
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ env.IMAGE_NAME }}:test
         format: 'json'
         output: 'trivy-report.json'
+        timeout: '10m'
+        cache-dir: /tmp/trivy-cache
+        skip-dirs: '/tmp,/var/cache'
+        skip-files: '*.log,*.tmp'
       continue-on-error: true
     
     - name: Upload security scan results
@@ -374,6 +430,17 @@ jobs:
         echo "Code quality: ${{ needs.code-quality.result }}"
         echo "Test coverage: ${{ needs.test-coverage.result }}"
         echo "Docker build: ${{ needs.docker-build.result }}"
+        echo ""
+        echo "🔍 Common fixes:"
+        echo "1. Check requirements.txt and requirements-dev.txt for missing dependencies"
+        echo "2. Ensure all imports have corresponding package installations"
+        echo "3. Verify Docker has sufficient disk space"
+        echo "4. Check test files for syntax errors"
+        echo ""
+        echo "📋 Next steps:"
+        echo "1. Review the job logs above for specific error messages"
+        echo "2. Run 'python run_tests.py deps' locally to check dependencies"
+        echo "3. Test Docker build locally: 'docker build -t test-image .'"
         exit 1
 
   # Cleanup
