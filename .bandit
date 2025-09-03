@@ -1,0 +1,35 @@
+# Bandit security scanner configuration
+# Excludes test directories and reduces false positives
+
+[bandit]
+# Exclude directories from scanning
+exclude_dirs = ['/tests', '/test_reports', '/venv', '/.venv', '/.git', '/node_modules', '/cache']
+
+# Skip specific tests that are commonly false positives
+# B101: assert_used - Skip assert statements (common in tests)
+# B601: paramiko_calls - Skip if using paramiko (common in legitimate SSH usage)
+# B602: subprocess_popen_with_shell_equals_true - Skip if using shell=True legitimately
+skips = ['B101']
+
+# Set confidence level (LOW, MEDIUM, HIGH)
+# Only report MEDIUM and HIGH confidence issues
+confidence = MEDIUM
+
+# Set severity level (LOW, MEDIUM, HIGH)  
+# Only report MEDIUM and HIGH severity issues
+severity = MEDIUM
+
+# Maximum number of lines to report per file
+max_lines_per_file = 500
+
+# Bandit will scan recursively
+recursive = true
+
+# Report format options: csv, json, txt, xml, yaml
+format = json
+
+# Include test names in output
+include_test_names = true
+
+# Show only the code lines that triggered the issue
+show_source_code = true

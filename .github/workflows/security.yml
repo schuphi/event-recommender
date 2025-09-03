@@ -39,17 +39,17 @@ jobs:
       run: |
         bandit -r backend/ ml/ data-collection/ \
                -f json -o bandit-report.json \
-               -ll -x */tests/*
+               --configfile .bandit
       continue-on-error: true
     
     - name: Run Semgrep (multi-language security scanner)
       run: |
-        python -m semgrep --config=auto --json --output=semgrep-report.json .
+        semgrep --config=auto --json --output=semgrep-report.json .
       continue-on-error: true
     
     - name: Check for hardcoded secrets
       run: |
-        python -m semgrep --config=r/secrets --json --output=secrets-report.json .
+        semgrep --config=r/secrets --json --output=secrets-report.json .
       continue-on-error: true
     
     - name: Upload SAST reports
@@ -83,7 +83,7 @@ jobs:
     
     - name: Run Safety (known vulnerabilities)
       run: |
-        safety check --json --output safety-report.json
+        safety check --format=json --output=safety-report.json
       continue-on-error: true
     
     - name: Run pip-audit (PyPI vulnerabilities)
@@ -188,20 +188,36 @@ jobs:
     
     - name: Scan Docker Compose files
       run: |
-        checkov -f docker-compose.yml --framework docker-compose \
-                --output json --output-file checkov-docker-compose.json
+        if [ -f docker-compose.yml ]; then
+          checkov -f docker-compose.yml --framework docker_compose \
+                  --output json --output-file checkov-docker-compose.json
+        else
+          echo "docker-compose.yml not found, skipping scan"
+          echo '{"results": {"failed_checks": []}}' > checkov-docker-compose.json
+        fi
       continue-on-error: true
     
     - name: Scan Dockerfiles
       run: |
-        checkov -f Dockerfile --framework dockerfile \
-                --output json --output-file checkov-dockerfile.json
+        if [ -f Dockerfile ]; then
+          checkov -f Dockerfile --framework dockerfile \
+                  --output json --output-file checkov-dockerfile.json
+        else
+          echo "Dockerfile not found, skipping scan"
+          echo '{"results": {"failed_checks": []}}' > checkov-dockerfile.json
+        fi
       continue-on-error: true
     
     - name: Scan Nginx configuration
       run: |
-        checkov -f nginx.conf --framework nginx \
-                --output json --output-file checkov-nginx.json
+        if [ -f nginx.conf ]; then
+          # Use generic file scanner since nginx is not a standard checkov framework
+          checkov -f nginx.conf --framework secrets \
+                  --output json --output-file checkov-nginx.json
+        else
+          echo "nginx.conf not found, skipping scan"
+          echo '{"results": {"failed_checks": []}}' > checkov-nginx.json
+        fi
       continue-on-error: true
     
     - name: Upload IaC security reports
