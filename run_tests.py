@@ -166,29 +166,30 @@ def check_test_dependencies():
     """Check if all test dependencies are available."""
     print("[CHECK] Checking test dependencies...")
 
-    required_packages = [
-        "pytest",
-        "pytest-cov",
-        "pytest-html",
-        "pytest-asyncio",
-        "requests",
-        "duckdb",
-        "fastapi",
-        "jwt",
-        "geopy",
-    ]
+    # Map import names to pip package names
+    package_mappings = {
+        "pytest": "pytest",
+        "pytest-cov": "pytest-cov",
+        "pytest-html": "pytest-html",
+        "pytest-asyncio": "pytest-asyncio",
+        "requests": "requests",
+        "duckdb": "duckdb",
+        "fastapi": "fastapi",
+        "jwt": "PyJWT",
+        "geopy": "geopy",
+    }
     
     # Only check torch if not disabled
     if not os.getenv("DISABLE_TORCH"):
-        required_packages.append("torch")
+        package_mappings["torch"] = "torch"
 
     missing_packages = []
 
-    for package in required_packages:
+    for import_name, pip_name in package_mappings.items():
         try:
-            __import__(package.replace("-", "_"))
+            __import__(import_name.replace("-", "_"))
         except ImportError:
-            missing_packages.append(package)
+            missing_packages.append(pip_name)
 
     if missing_packages:
         print(f"[ERROR] Missing test dependencies:")
