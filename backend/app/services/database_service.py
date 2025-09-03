@@ -19,11 +19,11 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from models.requests import UserPreferencesRequest, RecommendationFilters, DateFilter, InteractionType
-from models.responses import (
+from backend.app.models.requests import UserPreferencesRequest, RecommendationFilters, DateFilter, InteractionType
+from backend.app.models.responses import (
     EventResponse, UserResponse, InteractionResponse, VenueResponse, ArtistResponse
 )
-from core.config import settings
+from backend.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

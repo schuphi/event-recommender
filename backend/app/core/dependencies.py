@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from services.database_service import DatabaseService
+from backend.app.services.database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
 

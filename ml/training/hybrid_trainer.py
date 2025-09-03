@@ -19,7 +19,7 @@ from sklearn.metrics import roc_auc_score, precision_recall_curve, auc, ndcg_sco
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-from ..models.hybrid_ranker import HybridRankerMLP
+from ml.models.hybrid_ranker import HybridRankerMLP
 from .data_generator import TrainingExample, TrainingDataGenerator
 
 logging.basicConfig(level=logging.INFO)
