@@ -62,3 +62,7 @@ mypy>=1.5.0
 bandit>=1.7.5
 safety>=2.3.0
 semgrep>=1.45.0
+
+# Missing Dependencies (used in codebase)
+PyJWT>=2.8.0
+geopy>=2.4.0
