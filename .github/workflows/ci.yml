@@ -56,7 +56,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-report
@@ -69,7 +69,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload dependency report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: dependency-report
@@ -119,7 +119,7 @@ jobs:
         PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend:${{ github.workspace }}/ml:${{ github.workspace }}/data-collection
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-${{ matrix.test-category }}
@@ -162,7 +162,7 @@ jobs:
         name: codecov-umbrella
     
     - name: Upload test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-coverage-report
@@ -207,7 +207,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload security scan results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: docker-security-scan
@@ -247,7 +247,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload performance report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: performance-report
