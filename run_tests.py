@@ -177,6 +177,7 @@ def check_test_dependencies():
         "fastapi": "fastapi",
         "jwt": "PyJWT",
         "geopy": "geopy",
+        "Levenshtein": "python-Levenshtein",
     }
     
     # Only check torch if not disabled
