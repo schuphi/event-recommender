@@ -30,6 +30,9 @@ if spec and spec.loader:
     data_collection_module = importlib.util.module_from_spec(spec)
     sys.modules["data_collection"] = data_collection_module
 
+# Disable PyTorch-dependent imports for testing
+os.environ['DISABLE_TORCH'] = 'true'
+
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.core.config import Settings
@@ -254,7 +257,7 @@ def client(test_settings, test_db):
 @pytest.fixture
 def db_service(test_db):
     """Database service for testing."""
-    return DatabaseService(database_url=test_db)
+    return DatabaseService()
 
 @pytest.fixture
 def sample_events():

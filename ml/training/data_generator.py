@@ -16,9 +16,9 @@ import random
 from collections import defaultdict
 from dataclasses import dataclass
 
-from ..models.content_based import ContentBasedRecommender, UserPreferences
-from ..models.collaborative_filtering import CollaborativeFilteringRecommender
-from ..models.hybrid_ranker import EventCandidate
+from ml.models.content_based import ContentBasedRecommender, UserPreferences
+from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
+from ml.models.hybrid_ranker import EventCandidate
 from geopy.distance import geodesic
 
 logging.basicConfig(level=logging.INFO)

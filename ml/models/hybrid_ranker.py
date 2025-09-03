@@ -17,8 +17,8 @@ from datetime import datetime, timedelta
 import h3
 from geopy.distance import geodesic
 
-from .content_based import ContentBasedRecommender, UserPreferences
-from .collaborative_filtering import CollaborativeFilteringRecommender
+from ml.models.content_based import ContentBasedRecommender, UserPreferences
+from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

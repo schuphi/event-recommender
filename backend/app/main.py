@@ -19,19 +19,23 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
-from models.requests import (
+from backend.app.models.requests import (
     RecommendationRequest, UserPreferencesRequest, InteractionRequest,
     UserRegistrationRequest, EventSearchRequest
 )
-from models.responses import (
+from backend.app.models.responses import (
     RecommendationResponse, EventResponse, UserResponse, 
     HealthResponse, AnalyticsResponse
 )
-from services.recommendation_service import RecommendationService
-from services.database_service import DatabaseService
-from services.analytics_service import AnalyticsService
-from core.config import Settings
-from core.dependencies import get_current_user, get_db_service
+# Conditional imports for testing
+import os
+if os.getenv('DISABLE_TORCH') != 'true':
+    from backend.app.services.recommendation_service import RecommendationService
+    from backend.app.services.analytics_service import AnalyticsService
+
+from backend.app.services.database_service import DatabaseService
+from backend.app.core.config import Settings
+from backend.app.core.dependencies import get_current_user, get_db_service
 
 # Configure logging
 logging.basicConfig(
@@ -63,9 +67,13 @@ app.add_middleware(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Initialize services
-recommendation_service = RecommendationService()
-analytics_service = AnalyticsService()
+# Initialize services conditionally
+if os.getenv('DISABLE_TORCH') != 'true':
+    recommendation_service = RecommendationService()
+    analytics_service = AnalyticsService()
+else:
+    recommendation_service = None
+    analytics_service = None
 
 @app.on_event("startup")
 async def startup_event():
