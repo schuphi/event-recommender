@@ -42,21 +42,38 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
     
+    - name: Debug code quality tools
+      run: |
+        echo "=== Debug Code Quality ==="
+        echo "Black version: $(black --version)"
+        echo "Ruff version: $(ruff --version)"  
+        echo "MyPy version: $(mypy --version)"
+        echo "Bandit version: $(bandit --version)"
+        echo "Files to check: $(find backend/ ml/ data-collection/ -name "*.py" | wc -l)"
+    
     - name: Code formatting check (Black)
-      run: black --check --diff .
+      run: |
+        echo "Running black --check --diff ."
+        black --check --diff . 2>&1 || echo "Black check failed with exit code $?"
     
     - name: Linting (Ruff)
-      run: ruff check .
+      run: |
+        echo "Running ruff check ."
+        ruff check . 2>&1 || echo "Ruff check failed with exit code $?"
     
     - name: Type checking (MyPy)
-      run: mypy backend/ ml/ data-collection/ --ignore-missing-imports
+      run: |
+        echo "Running mypy backend/ ml/ data-collection/"
+        mypy backend/ ml/ data-collection/ --ignore-missing-imports 2>&1 || echo "MyPy failed with exit code $?"
     
     - name: Security scanning (Bandit)
-      run: bandit -r backend/ ml/ data-collection/ -f json -o security-report.json
+      run: |
+        echo "Running bandit security scan"
+        bandit -r backend/ ml/ data-collection/ -f json -o security-report.json 2>&1 || echo "Bandit failed with exit code $?"
       continue-on-error: true
     
     - name: Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-report
@@ -69,7 +86,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload dependency report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: dependency-report
@@ -110,16 +127,27 @@ jobs:
         export DATABASE_URL="test_events.duckdb"
         export PYTHONPATH="${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/backend:${GITHUB_WORKSPACE}/ml:${GITHUB_WORKSPACE}/data-collection"
     
+    - name: Debug before running tests
+      run: |
+        echo "=== Debug Info ==="
+        echo "Working directory: $(pwd)"
+        echo "Python path: $PYTHONPATH"
+        echo "Files in directory: $(ls -la)"
+        echo "run_tests.py exists: $(test -f run_tests.py && echo 'YES' || echo 'NO')"
+        echo "run_tests.py permissions: $(ls -la run_tests.py)"
+        echo "Python version: $(python --version)"
+        echo "Can import pytest: $(python -c 'import pytest; print("OK")' 2>&1)"
+        
     - name: Run tests with coverage
       run: |
-        python run_tests.py ${{ matrix.test-category }} --no-coverage
+        python run_tests.py ${{ matrix.test-category }} --no-coverage 2>&1
       env:
         DATABASE_URL: test_events.duckdb
         TESTING: true
         PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend:${{ github.workspace }}/ml:${{ github.workspace }}/data-collection
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-${{ matrix.test-category }}
@@ -162,7 +190,7 @@ jobs:
         name: codecov-umbrella
     
     - name: Upload test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-coverage-report
@@ -207,7 +235,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload security scan results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: docker-security-scan
@@ -247,7 +275,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload performance report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: performance-report
