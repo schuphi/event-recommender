@@ -3,7 +3,8 @@
 Configuration settings for the Copenhagen Event Recommender API.
 """
 
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List, Optional
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
     )
     
     # Database Configuration
-    DATABASE_URL: str = Field(default="data/events.duckdb", env="DATABASE_URL")
+    DATABASE_URL: str = Field(default="../../data/events.duckdb", env="DATABASE_URL")
     DB_POOL_SIZE: int = Field(default=10, env="DB_POOL_SIZE")
     
     # ML Model Configuration

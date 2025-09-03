@@ -11,7 +11,11 @@ from datetime import datetime, timedelta
 import logging
 
 from .config import settings
-from ..services.database_service import DatabaseService
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from services.database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
 
