@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from models.responses import EventResponse
+from backend.app.models.responses import EventResponse
 
 try:
     from sklearn.metrics.pairwise import cosine_similarity

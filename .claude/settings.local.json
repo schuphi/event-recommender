@@ -7,7 +7,17 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "Bash(pip install:*)",
-      "Bash(set DATABASE_URL=C:UsersPhilippSchumacherprivatevent-recommenderdataevents.duckdb)"
+      "Bash(set DATABASE_URL=C:UsersPhilippSchumacherprivatevent-recommenderdataevents.duckdb)",
+      "Bash(for file in ml/training/data_generator.py ml/training/hybrid_trainer.py ml/training/production_pipeline.py ml/training/train_models.py)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(sed:*)",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(DISABLE_TORCH=true python -m pytest tests/test_database.py::TestDatabaseConnection::test_database_service_initialization -v)",
+      "Bash(DISABLE_TORCH=true python -m pytest tests/test_database.py::TestDatabaseConnection::test_database_service_initialization -v --tb=short)",
+      "Bash(DISABLE_TORCH=true python -m pytest --collect-only tests/)",
+      "Bash(set DISABLE_TORCH=true)"
     ],
     "deny": [],
     "ask": []

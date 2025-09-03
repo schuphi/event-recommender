@@ -14,8 +14,8 @@ import argparse
 from .data_generator import TrainingDataGenerator
 from .hybrid_trainer import HybridRankerTrainer
 from .train_models import ModelTrainer
-from ..models.content_based import ContentBasedRecommender
-from ..models.collaborative_filtering import CollaborativeFilteringRecommender
+from ml.models.content_based import ContentBasedRecommender
+from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -257,7 +257,7 @@ class ProductionMLPipeline:
     def _load_content_model(self) -> Optional[ContentBasedRecommender]:
         """Load existing content-based model."""
         try:
-            from ..embeddings.content_embedder import ContentEmbedder
+            from ml.embeddings.content_embedder import ContentEmbedder
             embedder = ContentEmbedder(cache_dir=str(self.models_dir / "embeddings"))
             
             model = ContentBasedRecommender(

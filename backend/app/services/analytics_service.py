@@ -17,8 +17,8 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from models.responses import AnalyticsResponse
-from core.config import settings
+from backend.app.models.responses import AnalyticsResponse
+from backend.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class AnalyticsService:
             logger.debug(f"Flushing {len(events_to_flush)} analytics events")
             
             # Write to database
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             for event in events_to_flush:
@@ -188,7 +188,7 @@ class AnalyticsService:
     async def _load_existing_metrics(self) -> None:
         """Load existing metrics from database for dashboard."""
         try:
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             # Load total users
@@ -318,7 +318,7 @@ class AnalyticsService:
         logger.info(f"Generating analytics dashboard for {days} days")
         
         try:
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             # Calculate date range
@@ -470,7 +470,7 @@ class AnalyticsService:
         logger.info(f"Getting analytics for event {event_id}")
         
         try:
-            from services.database_service import DatabaseService
+            from backend.app.services.database_service import DatabaseService
             db = DatabaseService()
             
             end_date = datetime.now()  
