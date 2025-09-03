@@ -575,6 +575,587 @@ class DatabaseService:
 
         return interactions
 
+    # Sync wrapper methods for tests
+    
+    def get_connection(self) -> duckdb.DuckDBPyConnection:
+        """Get database connection (sync method for tests)."""
+        if not self._connection:
+            self._connection = duckdb.connect(self.config.db_path)
+            # Ensure tables exist
+            self._create_tables_sync()
+        return self._connection
+    
+    def _create_tables_sync(self):
+        """Create database tables synchronously."""
+        try:
+            # Events table
+            self._connection.execute("""
+                CREATE TABLE IF NOT EXISTS events (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    start_time TIMESTAMP NOT NULL,
+                    venue_id TEXT NOT NULL,
+                    social_link TEXT,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Venues table
+            self._connection.execute("""
+                CREATE TABLE IF NOT EXISTS venues (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    latitude REAL,
+                    longitude REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Artists table
+            self._connection.execute("""
+                CREATE TABLE IF NOT EXISTS artists (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Event-Artist junction table
+            self._connection.execute("""
+                CREATE TABLE IF NOT EXISTS event_artists (
+                    id INTEGER PRIMARY KEY,
+                    event_id TEXT NOT NULL,
+                    artist_id TEXT NOT NULL,
+                    FOREIGN KEY (event_id) REFERENCES events(id),
+                    FOREIGN KEY (artist_id) REFERENCES artists(id)
+                )
+            """)
+            
+            # Interactions table (upvote/downvote)
+            self._connection.execute("""
+                CREATE TABLE IF NOT EXISTS interactions (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    interaction_type TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (event_id) REFERENCES events(id)
+                )
+            """)
+            
+        except Exception as e:
+            logger.error(f"Error creating tables: {e}")
+
+    # Event Operations
+    
+    async def store_event(self, event_data: Dict[str, Any]) -> str:
+        """Store event. Returns event_id. Check for duplicates using venue_id + date."""
+        import uuid
+        
+        event_id = str(uuid.uuid4())
+        
+        # Check for duplicates (same venue + date)
+        existing = await self._execute_query("""
+            SELECT id FROM events 
+            WHERE venue_id = ? AND DATE(start_time) = DATE(?)
+            AND status != 'cancelled'
+        """, [event_data.get('venue_id'), event_data.get('start_time')])
+        
+        if existing:
+            logger.info(f"Duplicate event found for venue {event_data.get('venue_id')} on {event_data.get('start_time')}")
+            return existing[0]['id']
+        
+        await self._execute_command("""
+            INSERT INTO events (id, title, description, start_time, venue_id, social_link, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, [
+            event_id,
+            event_data.get('title'),
+            event_data.get('description'),
+            event_data.get('start_time'),
+            event_data.get('venue_id'), 
+            event_data.get('social_link'),
+            event_data.get('status', 'active')
+        ])
+        
+        # Handle artists if provided
+        if 'artists' in event_data and event_data['artists']:
+            for artist_name in event_data['artists']:
+                artist_id = await self.store_artist({'name': artist_name})
+                await self._execute_command("""
+                    INSERT INTO event_artists (event_id, artist_id)
+                    VALUES (?, ?)
+                """, [event_id, artist_id])
+        
+        return event_id
+    
+    async def get_event_by_id(self, event_id: str) -> Optional[EventResponse]:
+        """Get single event by ID. Return None if not found."""
+        results = await self._execute_query("""
+            SELECT e.*, v.name as venue_name, v.address as venue_address,
+                   v.latitude, v.longitude,
+                   GROUP_CONCAT(a.name, ', ') as artists
+            FROM events e
+            LEFT JOIN venues v ON e.venue_id = v.id
+            LEFT JOIN event_artists ea ON e.id = ea.event_id
+            LEFT JOIN artists a ON ea.artist_id = a.id
+            WHERE e.id = ?
+            GROUP BY e.id
+        """, [event_id])
+        
+        if not results:
+            return None
+            
+        event_data = results[0]
+        return EventResponse(
+            id=event_data['id'],
+            title=event_data['title'],
+            description=event_data.get('description'),
+            start_time=event_data['start_time'],
+            venue=VenueResponse(
+                id=event_data['venue_id'],
+                name=event_data.get('venue_name', ''),
+                address=event_data.get('venue_address', ''),
+                latitude=event_data.get('latitude'),
+                longitude=event_data.get('longitude')
+            ),
+            artists=event_data.get('artists', '').split(', ') if event_data.get('artists') else [],
+            social_link=event_data.get('social_link')
+        )
+    
+    async def get_all_events(self) -> List[EventResponse]:
+        """Get all events (past + future) sorted by popularity (interaction score)."""
+        results = await self._execute_query("""
+            SELECT e.*, v.name as venue_name, v.address as venue_address,
+                   v.latitude, v.longitude,
+                   GROUP_CONCAT(a.name, ', ') as artists,
+                   COUNT(CASE WHEN i.interaction_type = 'upvote' THEN 1 END) as upvotes,
+                   COUNT(CASE WHEN i.interaction_type = 'downvote' THEN 1 END) as downvotes
+            FROM events e
+            LEFT JOIN venues v ON e.venue_id = v.id
+            LEFT JOIN event_artists ea ON e.id = ea.event_id
+            LEFT JOIN artists a ON ea.artist_id = a.id
+            LEFT JOIN interactions i ON e.id = i.event_id
+            WHERE e.status != 'cancelled'
+            GROUP BY e.id, e.title, e.description, e.start_time, e.venue_id, e.social_link, e.status, e.created_at
+            ORDER BY (upvotes - downvotes) DESC, e.start_time DESC
+        """)
+        
+        events = []
+        for event_data in results:
+            events.append(EventResponse(
+                id=event_data['id'],
+                title=event_data['title'], 
+                description=event_data.get('description'),
+                start_time=event_data['start_time'],
+                venue=VenueResponse(
+                    id=event_data['venue_id'],
+                    name=event_data.get('venue_name', ''),
+                    address=event_data.get('venue_address', ''),
+                    latitude=event_data.get('latitude'),
+                    longitude=event_data.get('longitude')
+                ),
+                artists=event_data.get('artists', '').split(', ') if event_data.get('artists') else [],
+                social_link=event_data.get('social_link')
+            ))
+        
+        return events
+    
+    async def get_upcoming_events(self, limit: int = 50) -> List[EventResponse]:
+        """Get future events only, sorted by date."""
+        results = await self._execute_query("""
+            SELECT e.*, v.name as venue_name, v.address as venue_address,
+                   v.latitude, v.longitude,
+                   GROUP_CONCAT(a.name, ', ') as artists
+            FROM events e
+            LEFT JOIN venues v ON e.venue_id = v.id
+            LEFT JOIN event_artists ea ON e.id = ea.event_id
+            LEFT JOIN artists a ON ea.artist_id = a.id
+            WHERE e.start_time > CURRENT_TIMESTAMP AND e.status != 'cancelled'
+            GROUP BY e.id
+            ORDER BY e.start_time ASC
+            LIMIT ?
+        """, [limit])
+        
+        events = []
+        for event_data in results:
+            events.append(EventResponse(
+                id=event_data['id'],
+                title=event_data['title'],
+                description=event_data.get('description'),
+                start_time=event_data['start_time'],
+                venue=VenueResponse(
+                    id=event_data['venue_id'],
+                    name=event_data.get('venue_name', ''),
+                    address=event_data.get('venue_address', ''),
+                    latitude=event_data.get('latitude'),
+                    longitude=event_data.get('longitude')
+                ),
+                artists=event_data.get('artists', '').split(', ') if event_data.get('artists') else [],
+                social_link=event_data.get('social_link')
+            ))
+        
+        return events
+    
+    async def search_events(self, query: str) -> List[EventResponse]:
+        """Keyword search on event title, description, artist names."""
+        search_term = f"%{query}%"
+        results = await self._execute_query("""
+            SELECT DISTINCT e.*, v.name as venue_name, v.address as venue_address,
+                   v.latitude, v.longitude,
+                   GROUP_CONCAT(a.name, ', ') as artists
+            FROM events e
+            LEFT JOIN venues v ON e.venue_id = v.id
+            LEFT JOIN event_artists ea ON e.id = ea.event_id
+            LEFT JOIN artists a ON ea.artist_id = a.id
+            WHERE (e.title LIKE ? OR e.description LIKE ? OR a.name LIKE ?)
+            AND e.status != 'cancelled'
+            GROUP BY e.id
+            ORDER BY e.start_time DESC
+        """, [search_term, search_term, search_term])
+        
+        events = []
+        for event_data in results:
+            events.append(EventResponse(
+                id=event_data['id'],
+                title=event_data['title'],
+                description=event_data.get('description'),
+                start_time=event_data['start_time'],
+                venue=VenueResponse(
+                    id=event_data['venue_id'],
+                    name=event_data.get('venue_name', ''),
+                    address=event_data.get('venue_address', ''),
+                    latitude=event_data.get('latitude'),
+                    longitude=event_data.get('longitude')
+                ),
+                artists=event_data.get('artists', '').split(', ') if event_data.get('artists') else [],
+                social_link=event_data.get('social_link')
+            ))
+        
+        return events
+    
+    async def get_events_by_venue(self, venue_id: str) -> List[EventResponse]:
+        """Get all events for a venue (past + future) for preference calibration."""
+        results = await self._execute_query("""
+            SELECT e.*, v.name as venue_name, v.address as venue_address,
+                   v.latitude, v.longitude,
+                   GROUP_CONCAT(a.name, ', ') as artists
+            FROM events e
+            LEFT JOIN venues v ON e.venue_id = v.id
+            LEFT JOIN event_artists ea ON e.id = ea.event_id
+            LEFT JOIN artists a ON ea.artist_id = a.id
+            WHERE e.venue_id = ? AND e.status != 'cancelled'
+            GROUP BY e.id
+            ORDER BY e.start_time DESC
+        """, [venue_id])
+        
+        events = []
+        for event_data in results:
+            events.append(EventResponse(
+                id=event_data['id'],
+                title=event_data['title'],
+                description=event_data.get('description'),
+                start_time=event_data['start_time'],
+                venue=VenueResponse(
+                    id=event_data['venue_id'],
+                    name=event_data.get('venue_name', ''),
+                    address=event_data.get('venue_address', ''),
+                    latitude=event_data.get('latitude'),
+                    longitude=event_data.get('longitude')
+                ),
+                artists=event_data.get('artists', '').split(', ') if event_data.get('artists') else [],
+                social_link=event_data.get('social_link')
+            ))
+        
+        return events
+    
+    async def get_events_in_date_range(self, start_date: datetime, end_date: datetime) -> List[EventResponse]:
+        """Filter events by date range."""
+        results = await self._execute_query("""
+            SELECT e.*, v.name as venue_name, v.address as venue_address,
+                   v.latitude, v.longitude,
+                   GROUP_CONCAT(a.name, ', ') as artists
+            FROM events e
+            LEFT JOIN venues v ON e.venue_id = v.id
+            LEFT JOIN event_artists ea ON e.id = ea.event_id
+            LEFT JOIN artists a ON ea.artist_id = a.id
+            WHERE e.start_time >= ? AND e.start_time <= ? AND e.status != 'cancelled'
+            GROUP BY e.id
+            ORDER BY e.start_time ASC
+        """, [start_date, end_date])
+        
+        events = []
+        for event_data in results:
+            events.append(EventResponse(
+                id=event_data['id'],
+                title=event_data['title'],
+                description=event_data.get('description'),
+                start_time=event_data['start_time'],
+                venue=VenueResponse(
+                    id=event_data['venue_id'],
+                    name=event_data.get('venue_name', ''),
+                    address=event_data.get('venue_address', ''),
+                    latitude=event_data.get('latitude'),
+                    longitude=event_data.get('longitude')
+                ),
+                artists=event_data.get('artists', '').split(', ') if event_data.get('artists') else [],
+                social_link=event_data.get('social_link')
+            ))
+        
+        return events
+
+    # Venue Operations
+    
+    async def store_venue(self, venue_data: Dict[str, Any]) -> str:
+        """Store venue with address, location coords. Returns venue_id."""
+        import uuid
+        
+        venue_id = str(uuid.uuid4())
+        
+        await self._execute_command("""
+            INSERT INTO venues (id, name, address, latitude, longitude)
+            VALUES (?, ?, ?, ?, ?)
+        """, [
+            venue_id,
+            venue_data.get('name'),
+            venue_data.get('address'),
+            venue_data.get('latitude'),
+            venue_data.get('longitude')
+        ])
+        
+        return venue_id
+    
+    async def get_venue_by_id(self, venue_id: str) -> Optional[VenueResponse]:
+        """Get venue by ID."""
+        results = await self._execute_query("""
+            SELECT * FROM venues WHERE id = ?
+        """, [venue_id])
+        
+        if not results:
+            return None
+            
+        venue_data = results[0]
+        return VenueResponse(
+            id=venue_data['id'],
+            name=venue_data['name'],
+            address=venue_data['address'],
+            latitude=venue_data.get('latitude'),
+            longitude=venue_data.get('longitude')
+        )
+    
+    async def get_all_venues(self) -> List[VenueResponse]:
+        """Get all venues."""
+        results = await self._execute_query("SELECT * FROM venues ORDER BY name")
+        
+        venues = []
+        for venue_data in results:
+            venues.append(VenueResponse(
+                id=venue_data['id'],
+                name=venue_data['name'],
+                address=venue_data['address'],
+                latitude=venue_data.get('latitude'),
+                longitude=venue_data.get('longitude')
+            ))
+        
+        return venues
+    
+    async def get_venues_near_location(self, lat: float, lng: float, radius_km: float) -> List[VenueResponse]:
+        """Find venues within radius."""
+        # Simple distance calculation - for production use proper geospatial functions
+        results = await self._execute_query("""
+            SELECT *, 
+                   (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * 
+                   cos(radians(longitude) - radians(?)) + sin(radians(?)) * 
+                   sin(radians(latitude)))) AS distance
+            FROM venues 
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            HAVING distance < ?
+            ORDER BY distance
+        """, [lat, lng, lat, radius_km])
+        
+        venues = []
+        for venue_data in results:
+            venues.append(VenueResponse(
+                id=venue_data['id'],
+                name=venue_data['name'],
+                address=venue_data['address'],
+                latitude=venue_data.get('latitude'),
+                longitude=venue_data.get('longitude')
+            ))
+        
+        return venues
+
+    # Artist Operations
+    
+    async def store_artist(self, artist_data: Dict[str, Any]) -> str:
+        """Store artist. Returns artist_id."""
+        import uuid
+        
+        # Check if artist already exists
+        existing = await self._execute_query("""
+            SELECT id FROM artists WHERE name = ?
+        """, [artist_data.get('name')])
+        
+        if existing:
+            return existing[0]['id']
+        
+        artist_id = str(uuid.uuid4())
+        
+        await self._execute_command("""
+            INSERT INTO artists (id, name)
+            VALUES (?, ?)
+        """, [artist_id, artist_data.get('name')])
+        
+        return artist_id
+    
+    async def get_all_artists(self) -> List[ArtistResponse]:
+        """Get all artists."""
+        results = await self._execute_query("SELECT * FROM artists ORDER BY name")
+        
+        artists = []
+        for artist_data in results:
+            artists.append(ArtistResponse(
+                id=artist_data['id'],
+                name=artist_data['name']
+            ))
+        
+        return artists
+    
+    async def search_artists(self, query: str) -> List[ArtistResponse]:
+        """Keyword search on artist names."""
+        search_term = f"%{query}%"
+        results = await self._execute_query("""
+            SELECT * FROM artists WHERE name LIKE ? ORDER BY name
+        """, [search_term])
+        
+        artists = []
+        for artist_data in results:
+            artists.append(ArtistResponse(
+                id=artist_data['id'],
+                name=artist_data['name']
+            ))
+        
+        return artists
+
+    # User Operations
+    
+    async def store_user(self, user_data: Dict[str, Any]) -> str:
+        """Store user. Returns user_id."""
+        import uuid
+        
+        user_id = str(uuid.uuid4())
+        
+        await self._execute_command("""
+            INSERT INTO users (id, email, name, preferences)
+            VALUES (?, ?, ?, ?)
+        """, [
+            user_id,
+            user_data.get('email'),
+            user_data.get('name'),
+            json.dumps(user_data.get('preferences', {}))
+        ])
+        
+        return user_id
+    
+    async def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
+        """Get user by ID."""
+        results = await self._execute_query("""
+            SELECT * FROM users WHERE id = ?
+        """, [user_id])
+        
+        if not results:
+            return None
+            
+        user_data = results[0]
+        preferences = json.loads(user_data.get('preferences', '{}'))
+        
+        return UserResponse(
+            id=user_data['id'],
+            email=user_data['email'],
+            name=user_data.get('name'),
+            preferences=preferences
+        )
+    
+    async def get_user_by_email(self, email: str) -> Optional[UserResponse]:
+        """Get user by email."""
+        results = await self._execute_query("""
+            SELECT * FROM users WHERE email = ?
+        """, [email])
+        
+        if not results:
+            return None
+            
+        user_data = results[0]
+        preferences = json.loads(user_data.get('preferences', '{}'))
+        
+        return UserResponse(
+            id=user_data['id'],
+            email=user_data['email'],
+            name=user_data.get('name'),
+            preferences=preferences
+        )
+
+    # Interaction Operations (Up/Downvote)
+    
+    async def store_interaction(self, interaction_data: Dict[str, Any]) -> str:
+        """Store upvote/downvote. Returns interaction_id."""
+        import uuid
+        
+        interaction_id = str(uuid.uuid4())
+        
+        await self._execute_command("""
+            INSERT INTO interactions (id, user_id, event_id, interaction_type)
+            VALUES (?, ?, ?, ?)
+        """, [
+            interaction_id,
+            interaction_data.get('user_id'),
+            interaction_data.get('event_id'),
+            interaction_data.get('interaction_type')  # 'upvote' or 'downvote'
+        ])
+        
+        return interaction_id
+    
+    async def get_event_interactions(self, event_id: str) -> List[InteractionResponse]:
+        """Get all interactions for an event."""
+        results = await self._execute_query("""
+            SELECT * FROM interactions WHERE event_id = ?
+            ORDER BY created_at DESC
+        """, [event_id])
+        
+        interactions = []
+        for interaction_data in results:
+            interactions.append(InteractionResponse(
+                id=interaction_data['id'],
+                user_id=interaction_data['user_id'],
+                event_id=interaction_data['event_id'],
+                interaction_type=InteractionType(interaction_data['interaction_type']),
+                timestamp=interaction_data['created_at']
+            ))
+        
+        return interactions
+    
+    async def get_all_interactions(self) -> List[InteractionResponse]:
+        """Get all interactions."""
+        results = await self._execute_query("""
+            SELECT * FROM interactions ORDER BY created_at DESC
+        """)
+        
+        interactions = []
+        for interaction_data in results:
+            interactions.append(InteractionResponse(
+                id=interaction_data['id'],
+                user_id=interaction_data['user_id'],
+                event_id=interaction_data['event_id'],
+                interaction_type=InteractionType(interaction_data['interaction_type']),
+                timestamp=interaction_data['created_at']
+            ))
+        
+        return interactions
+
     # Cleanup
 
     async def close(self):
