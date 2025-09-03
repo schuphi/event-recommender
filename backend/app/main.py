@@ -90,13 +90,19 @@ async def startup_event():
     logger.info("Starting Copenhagen Event Recommender API...")
 
     try:
-        # Initialize recommendation models
-        await recommendation_service.initialize()
-        logger.info("Recommendation service initialized")
+        # Initialize recommendation models (if not disabled)
+        if recommendation_service is not None:
+            await recommendation_service.initialize()
+            logger.info("Recommendation service initialized")
+        else:
+            logger.info("Recommendation service disabled (DISABLE_TORCH=true)")
 
-        # Initialize analytics
-        await analytics_service.initialize()
-        logger.info("Analytics service initialized")
+        # Initialize analytics (if not disabled)
+        if analytics_service is not None:
+            await analytics_service.initialize()
+            logger.info("Analytics service initialized")
+        else:
+            logger.info("Analytics service disabled (DISABLE_TORCH=true)")
 
         logger.info("API startup completed successfully")
 
@@ -111,8 +117,14 @@ async def shutdown_event():
     logger.info("Shutting down Copenhagen Event Recommender API...")
 
     try:
-        await recommendation_service.cleanup()
-        await analytics_service.cleanup()
+        if recommendation_service is not None:
+            await recommendation_service.cleanup()
+            logger.info("Recommendation service cleaned up")
+            
+        if analytics_service is not None:
+            await analytics_service.cleanup()
+            logger.info("Analytics service cleaned up")
+            
         logger.info("API shutdown completed")
 
     except Exception as e:
