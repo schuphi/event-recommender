@@ -532,7 +532,8 @@ async def get_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    port = int(os.getenv("API_PORT", 8000))
+    # Railway sets PORT, fallback to API_PORT, then default
+    port = int(os.getenv("PORT", os.getenv("API_PORT", 8000)))
     host = os.getenv("API_HOST", "0.0.0.0")
     
     logger.info(f"Starting Copenhagen Event Recommender MVP API")
