@@ -25,7 +25,9 @@
       "Bash(docker compose:*)",
       "WebFetch(domain:scandinaviastandard.com)",
       "Bash(timeout:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
