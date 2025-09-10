@@ -28,15 +28,24 @@ jobs:
 
     - name: Test API Health
       env:
-        API_URL: ${{ secrets.RAILWAY_API_URL || 'https://your-app.railway.app' }}
+        API_URL: ${{ secrets.RAILWAY_API_URL }}
       run: |
         python -c "
         import requests
         import json
         import sys
+        import os
         from datetime import datetime
         
-        api_url = '${{ env.API_URL }}'
+        api_url = os.getenv('API_URL')
+        
+        if not api_url:
+            print('⚠️  No Railway API URL configured yet')
+            print('📋 To enable monitoring:')
+            print('   1. Deploy to Railway first')
+            print('   2. Add RAILWAY_API_URL secret in GitHub')
+            print('   3. Re-run this workflow')
+            sys.exit(0)
         
         def test_endpoint(endpoint, expected_status=200):
             try:
@@ -75,15 +84,21 @@ jobs:
 
     - name: Check Database Health
       env:
-        API_URL: ${{ secrets.RAILWAY_API_URL || 'https://your-app.railway.app' }}
+        API_URL: ${{ secrets.RAILWAY_API_URL }}
       run: |
         python -c "
         import requests
         import json
+        import os
         from datetime import datetime
         
+        api_url = os.getenv('API_URL')
+        if not api_url:
+            print('⚠️  Skipping database health check - no Railway URL configured')
+            exit(0)
+        
         try:
-            response = requests.get('${{ env.API_URL }}/health', timeout=30)
+            response = requests.get(f'{api_url}/health', timeout=30)
             health_data = response.json()
             
             print('📊 Database Health:')
@@ -143,50 +158,11 @@ jobs:
     if: failure()
     
     steps:
-    - name: Create Issue
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const title = `🚨 System Health Check Failed - ${new Date().toISOString()}`;
-          const body = `
-          ## System Health Check Failed
-          
-          **Time**: ${new Date().toISOString()}
-          **Workflow**: [${context.workflow}](${context.payload.repository.html_url}/actions/runs/${context.runId})
-          
-          ### Potential Issues:
-          - API endpoints not responding
-          - Database connection issues
-          - Performance degradation
-          - Railway deployment problems
-          
-          ### Next Steps:
-          1. Check Railway logs
-          2. Verify database connectivity
-          3. Test manual deployment
-          4. Check for recent code changes
-          
-          ### Auto-generated Issue
-          This issue was automatically created by the monitoring workflow.
-          `;
-          
-          // Check if similar issue already exists
-          const existingIssues = await github.rest.issues.listForRepo({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            labels: ['monitoring', 'urgent'],
-            state: 'open'
-          });
-          
-          if (existingIssues.data.length === 0) {
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['monitoring', 'urgent', 'automated']
-            });
-          }
+    - name: Log Failure
+      run: |
+        echo "🚨 System Health Check Failed - $(date)"
+        echo "This would create an issue, but requires additional GitHub permissions"
+        echo "Manual action required: Check Railway deployment status"
 
   weekly-report:
     runs-on: ubuntu-latest
@@ -233,17 +209,8 @@ jobs:
         
         cat weekly_report.md
 
-    - name: Create Weekly Report Issue
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          const report = fs.readFileSync('weekly_report.md', 'utf8');
-          
-          await github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title: `📊 Weekly System Report - ${new Date().toISOString().split('T')[0]}`,
-            body: report,
-            labels: ['report', 'monitoring', 'weekly']
-          });
+    - name: Display Weekly Report
+      run: |
+        echo "📊 Weekly System Report - $(date)"
+        echo "Report would be posted as GitHub issue (requires additional permissions)"
+        echo "For now, check the workflow logs for the report details"

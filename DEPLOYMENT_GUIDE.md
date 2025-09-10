@@ -23,9 +23,9 @@ The following has been automatically configured:
 ✅ **GitHub Actions** for monitoring (`/.github/workflows/monitoring.yml`)  
 ✅ **Production Environment Variables** (`.env.example` updated)
 
-## 📋 Manual Steps Required
+## 📋 Deployment Steps (Correct Order)
 
-### 1. Railway Backend Deployment
+### Step 1: Railway Backend Deployment (FIRST)
 
 1. **Sign up at [Railway](https://railway.app/)**
    - Connect your GitHub account
@@ -35,62 +35,67 @@ The following has been automatically configured:
    ```
    ENVIRONMENT=production
    DATABASE_URL=/app/data/events.duckdb
-   CORS_ORIGINS=https://your-frontend-domain.vercel.app
+   CORS_ORIGINS=*
    PORT=8000
    ```
 
-3. **Deploy**:
+3. **Deploy and Get URL**:
    - Railway will automatically detect the `Dockerfile`
-   - Your API will be available at: `https://your-app.railway.app`
+   - Note your API URL: `https://your-app-name.railway.app`
+   - Test: Visit `https://your-app-name.railway.app/health`
 
-### 2. Frontend Deployment (Lovable + Vercel)
-
-1. **Use Lovable to adjust frontend**:
-   - Update API endpoint to your Railway URL
-   - Adjust CORS settings
-   - Deploy via Lovable's Vercel integration
-
-2. **Note the frontend URL** for step 3
-
-### 3. Update CORS Configuration
-
-After getting your frontend URL:
-
-1. **Update Railway Environment Variables**:
-   ```
-   CORS_ORIGINS=https://your-frontend-domain.vercel.app,https://your-app.railway.app
-   ```
-
-2. **Redeploy Railway app**
-
-### 4. GitHub Actions Configuration
+### Step 2: Configure GitHub Actions Monitoring
 
 1. **Add Repository Secrets**:
    - Go to Settings → Secrets and Variables → Actions
    - Add these secrets:
      ```
-     RAILWAY_API_URL=https://your-app.railway.app
+     RAILWAY_API_URL=https://your-app-name.railway.app
      INSTAGRAM_USERNAME=your_instagram_username (optional)
      INSTAGRAM_PASSWORD=your_instagram_password (optional)
      ```
 
-2. **Enable GitHub Actions**:
-   - Go to Actions tab
-   - Enable workflows if prompted
+2. **Test Monitoring**:
+   - Go to Actions tab → "System Monitoring"
+   - Click "Run workflow" to test
+   - Should now show ✅ instead of errors
 
-### 5. Database Setup
+### Step 3: Frontend Deployment (Lovable + Vercel)
 
-The system will automatically create a DuckDB database. To seed it:
+1. **Update frontend API endpoint**:
+   - In Lovable, update API URL to your Railway URL
+   - Test the connection
+
+2. **Deploy via Lovable's Vercel integration**
+   - Note your frontend URL: `https://your-app.vercel.app`
+
+### Step 4: Update CORS (Final Step)
+
+1. **Update Railway Environment Variables**:
+   ```
+   CORS_ORIGINS=https://your-app.vercel.app,https://your-app-name.railway.app
+   ```
+
+2. **Redeploy Railway app**
+
+### Step 5: Initial Data Collection
 
 1. **Run scrapers manually**:
    - Go to Actions → "Daily Scrapers" 
    - Click "Run workflow"
+   - This will populate your database with events
 
-2. **Or run locally and upload**:
-   ```bash
-   python data-collection/scrapers/runner.py
-   # Then copy data/events.duckdb to your Railway deployment
-   ```
+## ⚠️ Important Notes
+
+### GitHub Actions Issues
+- **Monitoring will show warnings** until Railway URL is configured
+- **Issue creation is disabled** (requires additional permissions)
+- **Focus on Railway deployment first**
+
+### Common First-Time Issues
+- `404 errors` on `/events` and `/stats` → Normal until data is scraped
+- `CORS errors` → Add frontend URL to Railway environment
+- `Database empty` → Run scrapers workflow manually
 
 ## 🔧 Configuration Details
 
