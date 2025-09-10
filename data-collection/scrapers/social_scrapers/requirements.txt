@@ -1,0 +1,33 @@
+# Social Scrapers Requirements (2025)
+
+# Instagram scraping
+instaloader>=4.9.0
+
+# TikTok scraping (2025 methods)
+TikTokApi>=7.1.0
+playwright>=1.40.0
+
+# Core dependencies
+requests>=2.31.0
+aiohttp>=3.9.0
+asyncio-throttle>=1.0.2
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Date/time handling
+python-dateutil>=2.8.2
+
+# Utilities
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+selectolax>=0.3.0
+
+# Optional: Advanced text processing
+# spacy>=3.7.0
+# nltk>=3.8.0
+
+# Development/testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
