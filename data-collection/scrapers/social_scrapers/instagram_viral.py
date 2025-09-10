@@ -7,13 +7,13 @@ Focuses on trending hashtags and viral event content rather than just venue acco
 import instaloader
 import re
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Tuple
 from dataclasses import dataclass
 import time
 import logging
 from pathlib import Path
 
-from .instagram import InstagramEventScraper, InstagramEvent
+from instagram import InstagramEventScraper, InstagramEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
