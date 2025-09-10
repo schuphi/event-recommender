@@ -77,7 +77,7 @@ jobs:
         "
 
     - name: Upload database artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: events-database-${{ github.run_number }}
         path: data/events.duckdb
