@@ -41,24 +41,24 @@ jobs:
         # Create/connect to database
         conn = duckdb.connect('./data/events.duckdb')
         
-        # First, let's see what tables already exist and drop them if needed
-        print('🔍 Checking existing tables...')
+        # FIRST: Drop all existing tables to start clean
+        print('🔍 Cleaning existing database...')
         try:
             tables = conn.execute('SHOW TABLES').fetchall()
-            print(f'Existing tables: {tables}')
+            print(f'Found existing tables: {tables}')
             
-            # Check venues table schema if it exists
-            try:
-                schema = conn.execute('DESCRIBE venues').fetchall()
-                print(f'Venues table schema: {schema}')
-                # Drop existing tables to recreate with correct schema
-                conn.execute('DROP TABLE IF EXISTS events')
-                conn.execute('DROP TABLE IF EXISTS venues')
-                print('✅ Dropped existing tables')
-            except:
-                print('ℹ️  No existing venues table found')
-        except:
-            print('ℹ️  No existing tables found')
+            # Drop tables in dependency order
+            conn.execute('DROP TABLE IF EXISTS recommendation_logs')
+            conn.execute('DROP TABLE IF EXISTS interactions') 
+            conn.execute('DROP TABLE IF EXISTS event_artists')
+            conn.execute('DROP TABLE IF EXISTS events')
+            conn.execute('DROP TABLE IF EXISTS active_events')
+            conn.execute('DROP TABLE IF EXISTS artists')
+            conn.execute('DROP TABLE IF EXISTS venues')
+            conn.execute('DROP TABLE IF EXISTS users')
+            print('✅ Dropped all existing tables')
+        except Exception as e:
+            print(f'Error during cleanup: {e}')
         
         # Create tables matching EXACT schema expected by main.py API queries
         # Based on actual SQL queries in main.py lines 130-217
