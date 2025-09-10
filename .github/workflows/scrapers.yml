@@ -88,9 +88,6 @@ jobs:
         )
         ''')
         
-        # Add other required tables as views for now
-        conn.execute('CREATE VIEW active_events AS SELECT * FROM events WHERE status = \"active\"')
-        
         # Insert a test venue with all required fields including lat/lon
         venue_id = str(uuid.uuid4())
         conn.execute('''
@@ -104,6 +101,9 @@ jobs:
         INSERT INTO events (id, title, description, date_time, venue_id, source, h3_index, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', [event_id, 'Database Test Event', 'Test event created during deployment', datetime.now(), venue_id, 'system', 'mock_h3_index', 'active'])
+        
+        # Create active_events view after events table is created
+        conn.execute('CREATE VIEW active_events AS SELECT * FROM events WHERE status = \"active\"')
         
         conn.commit()
         conn.close()
