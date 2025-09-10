@@ -1,0 +1,131 @@
+name: Daily Scrapers
+
+on:
+  schedule:
+    # Run daily at 6 AM and 6 PM UTC (covers Copenhagen peak hours)
+    - cron: '0 6,18 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  run-scrapers:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r data-collection/scrapers/social_scrapers/requirements.txt
+
+    - name: Create data directory
+      run: |
+        mkdir -p data
+        
+    - name: Download existing database (if exists)
+      env:
+        RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+      run: |
+        # Download the current database from Railway if it exists
+        # This step assumes you'll set up a mechanism to download the DB
+        echo "Database sync would happen here"
+
+    - name: Run event scrapers
+      env:
+        DATABASE_URL: ./data/events.duckdb
+        PYTHONPATH: ${{ github.workspace }}
+      run: |
+        echo "Running event scrapers..."
+        cd data-collection/scrapers
+        python -m scrapers.runner --source all --max-events 1000
+      continue-on-error: true
+
+    - name: Run social scrapers
+      env:
+        DATABASE_URL: ./data/events.duckdb
+        PYTHONPATH: ${{ github.workspace }}
+        # Add social media API keys as secrets
+        INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
+        INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
+      run: |
+        echo "Running social media scrapers..."
+        cd data-collection/scrapers/social_scrapers
+        python run_all_scrapers.py
+      continue-on-error: true
+
+    - name: Validate database
+      env:
+        DATABASE_URL: ./data/events.duckdb
+      run: |
+        python -c "
+        import duckdb
+        conn = duckdb.connect('./data/events.duckdb')
+        count = conn.execute('SELECT COUNT(*) FROM events WHERE date_time > CURRENT_DATE').fetchone()[0]
+        print(f'Found {count} upcoming events')
+        conn.close()
+        "
+
+    - name: Upload database artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: events-database-${{ github.run_number }}
+        path: data/events.duckdb
+        retention-days: 7
+
+    - name: Sync database to Railway
+      env:
+        RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+      run: |
+        # Upload the updated database back to Railway
+        echo "Database sync back to Railway would happen here"
+        # You'll need to implement this based on Railway's file storage options
+        
+    - name: Create scraping report
+      run: |
+        echo "## Scraping Report - $(date)" >> scraping_report.md
+        echo "- Run ID: ${{ github.run_number }}" >> scraping_report.md
+        echo "- Timestamp: $(date)" >> scraping_report.md
+        
+        # Add database stats
+        python -c "
+        import duckdb
+        from datetime import datetime
+        conn = duckdb.connect('./data/events.duckdb')
+        
+        total = conn.execute('SELECT COUNT(*) FROM events').fetchone()[0]
+        upcoming = conn.execute('SELECT COUNT(*) FROM events WHERE date_time > CURRENT_TIMESTAMP').fetchone()[0]
+        today = conn.execute('SELECT COUNT(*) FROM events WHERE DATE(date_time) = CURRENT_DATE').fetchone()[0]
+        
+        print(f'- Total events: {total}')
+        print(f'- Upcoming events: {upcoming}')
+        print(f'- Events today: {today}')
+        conn.close()
+        " >> scraping_report.md
+        
+        cat scraping_report.md
+
+    - name: Comment on commit (if push)
+      if: github.event_name == 'push'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('scraping_report.md', 'utf8');
+          
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: report
+          });

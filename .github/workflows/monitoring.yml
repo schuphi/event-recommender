@@ -1,0 +1,249 @@
+name: System Monitoring
+
+on:
+  schedule:
+    # Check every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        pip install requests httpx pandas
+
+    - name: Test API Health
+      env:
+        API_URL: ${{ secrets.RAILWAY_API_URL || 'https://your-app.railway.app' }}
+      run: |
+        python -c "
+        import requests
+        import json
+        import sys
+        from datetime import datetime
+        
+        api_url = '${{ env.API_URL }}'
+        
+        def test_endpoint(endpoint, expected_status=200):
+            try:
+                response = requests.get(f'{api_url}{endpoint}', timeout=30)
+                print(f'✅ {endpoint}: {response.status_code} - {response.reason}')
+                return response.status_code == expected_status
+            except Exception as e:
+                print(f'❌ {endpoint}: Error - {str(e)}')
+                return False
+        
+        print(f'🔍 Testing API at {api_url}')
+        print(f'📅 Timestamp: {datetime.now()}')
+        print()
+        
+        # Test endpoints
+        endpoints = {
+            '/': 200,
+            '/health': 200,
+            '/events?limit=1': 200,
+            '/stats': 200
+        }
+        
+        results = []
+        for endpoint, expected in endpoints.items():
+            success = test_endpoint(endpoint, expected)
+            results.append(success)
+        
+        # Overall health
+        if all(results):
+            print('\\n🟢 All systems operational')
+            sys.exit(0)
+        else:
+            print('\\n🔴 System degraded')
+            sys.exit(1)
+        "
+
+    - name: Check Database Health
+      env:
+        API_URL: ${{ secrets.RAILWAY_API_URL || 'https://your-app.railway.app' }}
+      run: |
+        python -c "
+        import requests
+        import json
+        from datetime import datetime
+        
+        try:
+            response = requests.get('${{ env.API_URL }}/health', timeout=30)
+            health_data = response.json()
+            
+            print('📊 Database Health:')
+            print(f'   Status: {health_data.get(\"database_status\", \"unknown\")}')
+            print(f'   Total Events: {health_data.get(\"events_count\", 0)}')
+            print(f'   Upcoming Events: {health_data.get(\"upcoming_events\", 0)}')
+            
+            # Alert if low event count
+            upcoming = health_data.get('upcoming_events', 0)
+            if upcoming < 10:
+                print('⚠️  Warning: Low upcoming event count!')
+                
+        except Exception as e:
+            print(f'❌ Database health check failed: {e}')
+        "
+
+    - name: Test Performance
+      env:
+        API_URL: ${{ secrets.RAILWAY_API_URL || 'https://your-app.railway.app' }}
+      run: |
+        python -c "
+        import requests
+        import time
+        from statistics import mean
+        
+        api_url = '${{ env.API_URL }}'
+        
+        def measure_response_time(endpoint):
+            times = []
+            for i in range(3):
+                start = time.time()
+                try:
+                    response = requests.get(f'{api_url}{endpoint}', timeout=30)
+                    end = time.time()
+                    if response.status_code == 200:
+                        times.append((end - start) * 1000)  # Convert to ms
+                except:
+                    pass
+                time.sleep(1)
+            return mean(times) if times else None
+        
+        print('⚡ Performance Check:')
+        
+        endpoints = ['/health', '/events?limit=10', '/stats']
+        for endpoint in endpoints:
+            avg_time = measure_response_time(endpoint)
+            if avg_time:
+                status = '🟢' if avg_time < 1000 else '🟡' if avg_time < 3000 else '🔴'
+                print(f'   {endpoint}: {avg_time:.0f}ms {status}')
+            else:
+                print(f'   {endpoint}: Failed ❌')
+        "
+
+  create-issue-on-failure:
+    needs: health-check
+    runs-on: ubuntu-latest
+    if: failure()
+    
+    steps:
+    - name: Create Issue
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const title = `🚨 System Health Check Failed - ${new Date().toISOString()}`;
+          const body = `
+          ## System Health Check Failed
+          
+          **Time**: ${new Date().toISOString()}
+          **Workflow**: [${context.workflow}](${context.payload.repository.html_url}/actions/runs/${context.runId})
+          
+          ### Potential Issues:
+          - API endpoints not responding
+          - Database connection issues
+          - Performance degradation
+          - Railway deployment problems
+          
+          ### Next Steps:
+          1. Check Railway logs
+          2. Verify database connectivity
+          3. Test manual deployment
+          4. Check for recent code changes
+          
+          ### Auto-generated Issue
+          This issue was automatically created by the monitoring workflow.
+          `;
+          
+          // Check if similar issue already exists
+          const existingIssues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['monitoring', 'urgent'],
+            state: 'open'
+          });
+          
+          if (existingIssues.data.length === 0) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['monitoring', 'urgent', 'automated']
+            });
+          }
+
+  weekly-report:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 6 * * 1'  # Monday 6 AM
+    
+    steps:
+    - name: Generate Weekly Report
+      env:
+        API_URL: ${{ secrets.RAILWAY_API_URL || 'https://your-app.railway.app' }}
+      run: |
+        python -c "
+        import requests
+        from datetime import datetime, timedelta
+        
+        api_url = '${{ env.API_URL }}'
+        
+        try:
+            # Get current stats
+            response = requests.get(f'{api_url}/stats', timeout=30)
+            stats = response.json()
+            
+            health_response = requests.get(f'{api_url}/health', timeout=30)
+            health = health_response.json()
+            
+            print('# Weekly System Report')
+            print(f'**Generated**: {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S UTC\")}')
+            print()
+            print('## System Status')
+            print(f'- API Status: {health.get(\"status\", \"unknown\")}')
+            print(f'- Database Status: {health.get(\"database_status\", \"unknown\")}')
+            print()
+            print('## Event Statistics')
+            print(f'- Total Events: {stats.get(\"total_events\", \"N/A\")}')
+            print(f'- Upcoming Events: {stats.get(\"upcoming_events\", \"N/A\")}')
+            print()
+            print('## Top Venues')
+            venues = stats.get(\"by_venue\", [])[:5]
+            for venue in venues:
+                print(f'- {venue.get(\"name\", \"Unknown\")}: {venue.get(\"count\", 0)} events')
+            
+        except Exception as e:
+            print(f'Failed to generate weekly report: {e}')
+        " > weekly_report.md
+        
+        cat weekly_report.md
+
+    - name: Create Weekly Report Issue
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('weekly_report.md', 'utf8');
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `📊 Weekly System Report - ${new Date().toISOString().split('T')[0]}`,
+            body: report,
+            labels: ['report', 'monitoring', 'weekly']
+          });

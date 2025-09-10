@@ -36,9 +36,16 @@ app = FastAPI(
 
 # Add CORS middleware
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+# In production, be more restrictive
+if os.getenv("ENVIRONMENT") == "production":
+    cors_origins = [origin.strip() for origin in cors_origins if origin.strip() != "*"]
+    allow_all = False
+else:
+    allow_all = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins + ["*"],  # Allow all origins for MVP
+    allow_origins=cors_origins + (["*"] if allow_all else []),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
