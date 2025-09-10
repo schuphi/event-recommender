@@ -22,7 +22,10 @@
       "Bash(set PYTHONIOENCODING=utf-8)",
       "Bash($env:DISABLE_TORCH=\"true\")",
       "Bash(docker-compose up:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "WebFetch(domain:scandinaviastandard.com)",
+      "Bash(timeout:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
