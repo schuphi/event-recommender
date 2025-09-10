@@ -1,6 +1,7 @@
 [build]
-# Use Python runtime
+# Use simplified Railway Dockerfile
 builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.railway"
 
 [deploy]
 # Start command for the FastAPI server

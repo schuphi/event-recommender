@@ -28,11 +28,11 @@ RUN useradd --create-home --shell /bin/bash app
 WORKDIR /app
 
 # Copy requirements files
-COPY requirements.txt requirements-dev.txt ./
+COPY requirements-railway.txt requirements.txt requirements-dev.txt ./
 
-# Install Python dependencies
+# Install Python dependencies (use lightweight requirements for Railway)
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt && \
+    pip install -r requirements-railway.txt && \
     if [ "$BUILD_ENV" = "development" ]; then pip install -r requirements-dev.txt; fi
 
 # Production stage
@@ -68,7 +68,8 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 COPY --chown=app:app . .
 
 # Create data and model directories with proper permissions
-RUN mkdir -p /app/data/events.duckdb && \
+# Note: events.duckdb is a file, not a directory
+RUN mkdir -p /app/data && \
     mkdir -p /app/models && \
     mkdir -p /app/logs && \
     mkdir -p /app/cache && \
