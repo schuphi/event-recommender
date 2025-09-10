@@ -34,7 +34,8 @@
       "Bash(git push:*)",
       "Bash(git rebase:*)",
       "Bash(git pull:*)",
-      "Bash(docker build:*)"
+      "Bash(docker build:*)",
+      "WebFetch(domain:event-recommender-production.up.railway.app)"
     ],
     "deny": [],
     "ask": []

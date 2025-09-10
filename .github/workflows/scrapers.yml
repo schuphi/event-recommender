@@ -29,9 +29,54 @@ jobs:
         pip install -r requirements.txt
         pip install -r data-collection/scrapers/social_scrapers/requirements.txt
 
-    - name: Create data directory
+    - name: Create data directory and initialize database
       run: |
         mkdir -p data
+        # Create a simple database initialization script
+        python -c "
+        import duckdb
+        import os
+        from datetime import datetime
+        
+        # Create/connect to database
+        conn = duckdb.connect('./data/events.duckdb')
+        
+        # Create basic tables if they don't exist
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS events (
+            id VARCHAR PRIMARY KEY,
+            title VARCHAR NOT NULL,
+            description TEXT,
+            date_time TIMESTAMP,
+            end_date_time TIMESTAMP,
+            venue_id VARCHAR,
+            source VARCHAR,
+            source_url VARCHAR,
+            status VARCHAR DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS venues (
+            id VARCHAR PRIMARY KEY,
+            name VARCHAR NOT NULL,
+            address VARCHAR,
+            neighborhood VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        # Add a test event to verify database works
+        conn.execute('''
+        INSERT OR REPLACE INTO events (id, title, description, date_time, source, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ''', ['test-event-1', 'Database Test Event', 'Test event created during deployment', datetime.now(), 'system', 'active'])
+        
+        conn.commit()
+        conn.close()
+        print('✅ Database initialized successfully')
+        "
         
     - name: Download existing database (if exists)
       env:
@@ -48,7 +93,7 @@ jobs:
       run: |
         echo "Running event scrapers..."
         cd data-collection/scrapers
-        python -m scrapers.runner --source all --max-events 1000
+        python runner.py --source all --max-events 1000
       continue-on-error: true
 
     - name: Run social scrapers
