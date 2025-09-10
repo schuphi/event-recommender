@@ -29,83 +29,85 @@ jobs:
         pip install -r requirements.txt
         pip install -r data-collection/scrapers/social_scrapers/requirements.txt
 
-    - name: Create data directory and initialize database
+    - name: Initialize database with existing complex schema
       run: |
         mkdir -p data
-        # Create a simple database initialization script
+        # Remove any existing database file to start clean
+        rm -f ./data/events.duckdb
+        
+        # Create database with the same schema as database/schema.sql but simplified
         python -c "
         import duckdb
-        import os
         from datetime import datetime
+        import uuid
         
-        # Create/connect to database
         conn = duckdb.connect('./data/events.duckdb')
         
-        # FIRST: Drop all existing tables to start clean
-        print('🔍 Cleaning existing database...')
-        try:
-            tables = conn.execute('SHOW TABLES').fetchall()
-            print(f'Found existing tables: {tables}')
-            
-            # Drop tables in dependency order
-            conn.execute('DROP TABLE IF EXISTS recommendation_logs')
-            conn.execute('DROP TABLE IF EXISTS interactions') 
-            conn.execute('DROP TABLE IF EXISTS event_artists')
-            conn.execute('DROP TABLE IF EXISTS events')
-            conn.execute('DROP TABLE IF EXISTS active_events')
-            conn.execute('DROP TABLE IF EXISTS artists')
-            conn.execute('DROP TABLE IF EXISTS venues')
-            conn.execute('DROP TABLE IF EXISTS users')
-            print('✅ Dropped all existing tables')
-        except Exception as e:
-            print(f'Error during cleanup: {e}')
-        
-        # Create tables matching EXACT schema expected by main.py API queries
-        # Based on actual SQL queries in main.py lines 130-217
-        
+        # Create venues table with exact schema that exists in Railway
         conn.execute('''
-        CREATE TABLE IF NOT EXISTS venues (
+        CREATE TABLE venues (
             id TEXT PRIMARY KEY,
-            name TEXT,
+            name TEXT NOT NULL,
             address TEXT,
-            neighborhood TEXT
+            lat REAL NOT NULL,
+            lon REAL NOT NULL,
+            h3_index TEXT NOT NULL,
+            neighborhood TEXT,
+            venue_type TEXT,
+            capacity INTEGER,
+            website TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
+        # Create events table with schema matching Railway
         conn.execute('''
-        CREATE TABLE IF NOT EXISTS events (
+        CREATE TABLE events (
             id TEXT PRIMARY KEY,
-            title TEXT,
+            title TEXT NOT NULL,
             description TEXT,
-            date_time TIMESTAMP,
+            date_time TIMESTAMP NOT NULL,
             end_date_time TIMESTAMP,
             price_min REAL,
             price_max REAL,
             currency TEXT DEFAULT 'DKK',
-            venue_id TEXT,
-            source TEXT,
+            venue_id TEXT NOT NULL,
+            artist_ids TEXT,
+            source TEXT NOT NULL,
+            source_id TEXT,
             source_url TEXT,
             image_url TEXT,
+            h3_index TEXT,
+            embedding BLOB,
+            content_features TEXT,
             popularity_score REAL DEFAULT 0.0,
-            status TEXT DEFAULT 'active'
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
-        # Add a test venue first
-        conn.execute('''
-        INSERT OR REPLACE INTO venues (id, name, address, neighborhood)
-        VALUES (?, ?, ?, ?)
-        ''', ['test-venue-1', 'Test Venue', 'Copenhagen, Denmark', 'City Center'])
+        # Add other required tables as views for now
+        conn.execute('CREATE VIEW active_events AS SELECT * FROM events WHERE status = \"active\"')
         
-        # Add a test event (using date_time as expected by main.py)
+        # Insert a test venue with all required fields including lat/lon
+        venue_id = str(uuid.uuid4())
         conn.execute('''
-        INSERT OR REPLACE INTO events (id, title, description, date_time, venue_id, source, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', ['test-event-1', 'Database Test Event', 'Test event created during deployment', datetime.now(), 'test-venue-1', 'system', 'active'])
+        INSERT INTO venues (id, name, address, lat, lon, h3_index, neighborhood, venue_type, capacity)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', [venue_id, 'Test Venue', 'Copenhagen, Denmark', 55.6761, 12.5683, 'mock_h3_index', 'City Center', 'club', 500])
+        
+        # Insert a test event
+        event_id = str(uuid.uuid4())
+        conn.execute('''
+        INSERT INTO events (id, title, description, date_time, venue_id, source, h3_index, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', [event_id, 'Database Test Event', 'Test event created during deployment', datetime.now(), venue_id, 'system', 'mock_h3_index', 'active'])
         
         conn.commit()
         conn.close()
-        print('✅ Database initialized successfully')
+        print('✅ Database initialized with complex schema')
         "
         
     - name: Download existing database (if exists)
