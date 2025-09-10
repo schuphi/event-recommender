@@ -41,13 +41,14 @@ jobs:
         # Create/connect to database
         conn = duckdb.connect('./data/events.duckdb')
         
-        # Create basic tables matching the actual API schema
+        # Create basic tables matching the actual API schema from database_service.py
         conn.execute('''
         CREATE TABLE IF NOT EXISTS venues (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
-            address TEXT,
-            neighborhood TEXT,
+            address TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
@@ -66,10 +67,11 @@ jobs:
         ''')
         
         # Add a test venue first (required for foreign key)
+        # Using Copenhagen coordinates: 55.6761, 12.5683
         conn.execute('''
-        INSERT OR REPLACE INTO venues (id, name, address, neighborhood)
-        VALUES (?, ?, ?, ?)
-        ''', ['test-venue-1', 'Test Venue', 'Copenhagen, Denmark', 'City Center'])
+        INSERT OR REPLACE INTO venues (id, name, address, latitude, longitude)
+        VALUES (?, ?, ?, ?, ?)
+        ''', ['test-venue-1', 'Test Venue', 'Copenhagen, Denmark', 55.6761, 12.5683])
         
         # Add a test event
         conn.execute('''
