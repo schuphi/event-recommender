@@ -41,6 +41,25 @@ jobs:
         # Create/connect to database
         conn = duckdb.connect('./data/events.duckdb')
         
+        # First, let's see what tables already exist and drop them if needed
+        print('🔍 Checking existing tables...')
+        try:
+            tables = conn.execute('SHOW TABLES').fetchall()
+            print(f'Existing tables: {tables}')
+            
+            # Check venues table schema if it exists
+            try:
+                schema = conn.execute('DESCRIBE venues').fetchall()
+                print(f'Venues table schema: {schema}')
+                # Drop existing tables to recreate with correct schema
+                conn.execute('DROP TABLE IF EXISTS events')
+                conn.execute('DROP TABLE IF EXISTS venues')
+                print('✅ Dropped existing tables')
+            except:
+                print('ℹ️  No existing venues table found')
+        except:
+            print('ℹ️  No existing tables found')
+        
         # Create tables matching EXACT schema expected by main.py API queries
         # Based on actual SQL queries in main.py lines 130-217
         
