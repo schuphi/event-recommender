@@ -11,11 +11,14 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 import argparse
 
-from .data_generator import TrainingDataGenerator
-from .hybrid_trainer import HybridRankerTrainer
-from .train_models import ModelTrainer
-from ml.models.content_based import ContentBasedRecommender
-from ml.models.collaborative_filtering import CollaborativeFilteringRecommender
+from data_generator import TrainingDataGenerator
+from hybrid_trainer import HybridRecommenderTrainer
+from train_models import ModelTrainer
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from models.content_based import ContentBasedRecommender
+from models.collaborative_filtering import CollaborativeFilteringRecommender
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
