@@ -20,7 +20,9 @@
       "Bash(set DISABLE_TORCH=true)",
       "Bash(rm:*)",
       "Bash(set PYTHONIOENCODING=utf-8)",
-      "Bash($env:DISABLE_TORCH=\"true\")"
+      "Bash($env:DISABLE_TORCH=\"true\")",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)"
     ],
     "deny": [],
     "ask": []
