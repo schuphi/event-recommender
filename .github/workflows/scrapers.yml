@@ -41,43 +41,48 @@ jobs:
         # Create/connect to database
         conn = duckdb.connect('./data/events.duckdb')
         
-        # Create basic tables matching the actual API schema from database_service.py
+        # Create tables matching EXACT schema expected by main.py API queries
+        # Based on actual SQL queries in main.py lines 130-217
+        
         conn.execute('''
         CREATE TABLE IF NOT EXISTS venues (
             id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            address TEXT NOT NULL,
-            latitude REAL,
-            longitude REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            name TEXT,
+            address TEXT,
+            neighborhood TEXT
         )
         ''')
         
         conn.execute('''
         CREATE TABLE IF NOT EXISTS events (
             id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
+            title TEXT,
             description TEXT,
-            start_time TIMESTAMP NOT NULL,
-            venue_id TEXT NOT NULL,
-            social_link TEXT,
-            status TEXT DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            date_time TIMESTAMP,
+            end_date_time TIMESTAMP,
+            price_min REAL,
+            price_max REAL,
+            currency TEXT DEFAULT 'DKK',
+            venue_id TEXT,
+            source TEXT,
+            source_url TEXT,
+            image_url TEXT,
+            popularity_score REAL DEFAULT 0.0,
+            status TEXT DEFAULT 'active'
         )
         ''')
         
-        # Add a test venue first (required for foreign key)
-        # Using Copenhagen coordinates: 55.6761, 12.5683
+        # Add a test venue first
         conn.execute('''
-        INSERT OR REPLACE INTO venues (id, name, address, latitude, longitude)
-        VALUES (?, ?, ?, ?, ?)
-        ''', ['test-venue-1', 'Test Venue', 'Copenhagen, Denmark', 55.6761, 12.5683])
+        INSERT OR REPLACE INTO venues (id, name, address, neighborhood)
+        VALUES (?, ?, ?, ?)
+        ''', ['test-venue-1', 'Test Venue', 'Copenhagen, Denmark', 'City Center'])
         
-        # Add a test event
+        # Add a test event (using date_time as expected by main.py)
         conn.execute('''
-        INSERT OR REPLACE INTO events (id, title, description, start_time, venue_id, status)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ''', ['test-event-1', 'Database Test Event', 'Test event created during deployment', datetime.now(), 'test-venue-1', 'active'])
+        INSERT OR REPLACE INTO events (id, title, description, date_time, venue_id, source, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', ['test-event-1', 'Database Test Event', 'Test event created during deployment', datetime.now(), 'test-venue-1', 'system', 'active'])
         
         conn.commit()
         conn.close()
