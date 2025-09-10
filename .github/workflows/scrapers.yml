@@ -41,37 +41,41 @@ jobs:
         # Create/connect to database
         conn = duckdb.connect('./data/events.duckdb')
         
-        # Create basic tables if they don't exist
-        conn.execute('''
-        CREATE TABLE IF NOT EXISTS events (
-            id VARCHAR PRIMARY KEY,
-            title VARCHAR NOT NULL,
-            description TEXT,
-            date_time TIMESTAMP,
-            end_date_time TIMESTAMP,
-            venue_id VARCHAR,
-            source VARCHAR,
-            source_url VARCHAR,
-            status VARCHAR DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        
+        # Create basic tables matching the actual API schema
         conn.execute('''
         CREATE TABLE IF NOT EXISTS venues (
-            id VARCHAR PRIMARY KEY,
-            name VARCHAR NOT NULL,
-            address VARCHAR,
-            neighborhood VARCHAR,
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            address TEXT,
+            neighborhood TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
-        # Add a test event to verify database works
         conn.execute('''
-        INSERT OR REPLACE INTO events (id, title, description, date_time, source, status)
+        CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            start_time TIMESTAMP NOT NULL,
+            venue_id TEXT NOT NULL,
+            social_link TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        # Add a test venue first (required for foreign key)
+        conn.execute('''
+        INSERT OR REPLACE INTO venues (id, name, address, neighborhood)
+        VALUES (?, ?, ?, ?)
+        ''', ['test-venue-1', 'Test Venue', 'Copenhagen, Denmark', 'City Center'])
+        
+        # Add a test event
+        conn.execute('''
+        INSERT OR REPLACE INTO events (id, title, description, start_time, venue_id, status)
         VALUES (?, ?, ?, ?, ?, ?)
-        ''', ['test-event-1', 'Database Test Event', 'Test event created during deployment', datetime.now(), 'system', 'active'])
+        ''', ['test-event-1', 'Database Test Event', 'Test event created during deployment', datetime.now(), 'test-venue-1', 'active'])
         
         conn.commit()
         conn.close()
