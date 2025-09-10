@@ -60,11 +60,22 @@ logs/
 
 # ML Models and Data
 ml/models/
-vector_store/
 *.pkl
 *.joblib
 *.h5
 *.model
+
+# Test Reports and Coverage
+test_reports/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Legacy Files
+*_legacy.*
+*_old.*
+*_backup.*
 
 # Node.js
 node_modules/
