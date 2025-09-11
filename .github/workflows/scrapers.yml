@@ -134,8 +134,10 @@ jobs:
         DATABASE_URL: ./data/events.duckdb
         PYTHONPATH: ${{ github.workspace }}
       run: |
-        echo "Running event scrapers..."
+        echo "Populating real Copenhagen events..."
         cd data-collection/scrapers
+        python populate_real_events.py
+        echo "Running additional event scrapers..."
         python runner.py --source all --max-events 1000
       continue-on-error: true
 

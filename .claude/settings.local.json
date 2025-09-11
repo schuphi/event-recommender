@@ -35,7 +35,15 @@
       "Bash(git rebase:*)",
       "Bash(git pull:*)",
       "Bash(docker build:*)",
-      "WebFetch(domain:event-recommender-production.up.railway.app)"
+      "WebFetch(domain:event-recommender-production.up.railway.app)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic process:*)",
+      "Bash(PYTHONPATH=../.. python runner.py --source all --max-events 50)",
+      "Bash(PYTHONPATH=../.. python -c \"from data_collection.scrapers.official_apis.scandinavia_standard import ScandinaviaStandardScraper; print(''Import works'')\")",
+      "Bash(EVENTBRITE_API_TOKEN=V3V4RPQNECQVEQYFSFQ7 python runner.py --source all --max-events 50)"
     ],
     "deny": [],
     "ask": []

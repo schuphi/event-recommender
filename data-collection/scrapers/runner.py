@@ -18,19 +18,24 @@ def run_scrapers():
     logger.info("🚀 Starting event scrapers...")
     
     try:
-        # Try to run Scandinavia Standard scraper (no credentials needed)
-        logger.info("📰 Running Scandinavia Standard scraper...")
+        # Try to run Eventbrite scraper
+        logger.info("🎟️ Running Eventbrite scraper...")
         
         # Add the project root to Python path
         project_root = Path(__file__).parent.parent.parent
         sys.path.insert(0, str(project_root))
         
-        from data_collection.scrapers.official_apis.scandinavia_standard import ScandinaviaStandardScraper
+        from official_apis.eventbrite import EventbriteScraper
         
-        scraper = ScandinaviaStandardScraper()
-        events = scraper.scrape_events()
+        api_token = os.getenv("EVENTBRITE_API_TOKEN")
+        if not api_token:
+            logger.error("❌ EVENTBRITE_API_TOKEN environment variable not set")
+            return 0
+            
+        scraper = EventbriteScraper(api_token)
+        events = scraper.search_events(max_results=50)
         
-        logger.info(f"✅ Scraped {len(events)} events from Scandinavia Standard")
+        logger.info(f"✅ Scraped {len(events)} events from Eventbrite")
         
         return len(events)
         
