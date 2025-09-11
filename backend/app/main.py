@@ -630,6 +630,124 @@ async def add_test_event():
         logger.error(f"Add test event failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/admin/populate_events")
+async def populate_copenhagen_events():
+    """Admin endpoint to populate real Copenhagen events."""
+    
+    # Real Copenhagen events for September 2025
+    REAL_EVENTS = [
+        {
+            "title": "Jessie Reyez Live at Store Vega",
+            "description": "Colombian-Canadian singer-songwriter Jessie Reyez brings her raw vocals and emotional performances. GRAMMY-nominated artist with collaborations with Eminem, 6lack, Calvin Harris.",
+            "date_time": "2025-09-15T20:00:00",
+            "venue_name": "Store Vega",
+            "venue_address": "Enghavevej 40, 1674 København V",
+            "venue_neighborhood": "Vesterbro",
+            "price_min": 350,
+            "price_max": 450,
+            "source": "store_vega"
+        },
+        {
+            "title": "Robert Forster - Strawberries Tour", 
+            "description": "Former The Go-Betweens member Robert Forster touring with his new album 'Strawberries' alongside Swedish musicians.",
+            "date_time": "2025-09-22T19:30:00",
+            "venue_name": "Lille Vega",
+            "venue_address": "Enghavevej 40, 1674 København V",
+            "venue_neighborhood": "Vesterbro", 
+            "price_min": 280,
+            "price_max": 320,
+            "source": "lille_vega"
+        },
+        {
+            "title": "Copenhagen Jazz Festival Late Night",
+            "description": "Intimate late-night jazz sessions featuring local and international artists in the heart of Copenhagen's jazz scene.",
+            "date_time": "2025-09-16T22:00:00",
+            "venue_name": "Jazzhus Montmartre", 
+            "venue_address": "Store Regnegade 19A, 1110 København K",
+            "venue_neighborhood": "Indre By",
+            "price_min": 250,
+            "price_max": 350,
+            "source": "jazzhus_montmartre"
+        },
+        {
+            "title": "Techno Thursday at Culture Box",
+            "description": "Weekly techno night featuring international DJs and the best of Copenhagen's electronic music scene.",
+            "date_time": "2025-09-18T23:00:00",
+            "venue_name": "Culture Box",
+            "venue_address": "Kronprinsessegade 54A, 1306 København K", 
+            "venue_neighborhood": "Indre By",
+            "price_min": 120,
+            "price_max": 180,
+            "source": "culture_box"
+        },
+        {
+            "title": "Copenhagen Craft Beer Festival",
+            "description": "Celebrate Danish craft brewing with tastings from 30+ local breweries, food pairings, and live music.",
+            "date_time": "2025-09-27T14:00:00",
+            "venue_name": "REFSHALEØEN",
+            "venue_address": "Refshalevej 163, 1432 København K",
+            "venue_neighborhood": "Refshaleøen",
+            "price_min": 350, 
+            "price_max": 450,
+            "source": "craft_beer_cph"
+        }
+    ]
+    
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+        
+    try:
+        events_added = 0
+        
+        for event_data in REAL_EVENTS:
+            # Create venue if needed
+            venue_check = conn.execute(
+                "SELECT id FROM venues WHERE name = ?", [event_data["venue_name"]]
+            ).fetchone()
+            
+            if not venue_check:
+                venue_id = str(uuid.uuid4())
+                coords = {
+                    "Vesterbro": (55.6667, 12.5419),
+                    "Indre By": (55.6826, 12.5941), 
+                    "Refshaleøen": (55.6771, 12.5989)
+                }
+                lat, lon = coords.get(event_data["venue_neighborhood"], (55.6761, 12.5683))
+                
+                conn.execute("""
+                    INSERT INTO venues (id, name, address, lat, lon, h3_index, neighborhood, venue_type, capacity)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, [venue_id, event_data["venue_name"], event_data["venue_address"], 
+                      lat, lon, "mock_h3", event_data["venue_neighborhood"], "venue", 500])
+            else:
+                venue_id = venue_check[0]
+            
+            # Create event
+            event_id = str(uuid.uuid4())
+            conn.execute("""
+                INSERT INTO events (
+                    id, title, description, date_time, price_min, price_max, currency,
+                    venue_id, source, h3_index, status, popularity_score
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                event_id, event_data["title"], event_data["description"], 
+                event_data["date_time"], event_data["price_min"], event_data["price_max"],
+                "DKK", venue_id, event_data["source"], "mock_h3", "active", 0.8
+            ])
+            
+            events_added += 1
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Admin: Added {events_added} Copenhagen events")
+        return {"message": f"Successfully added {events_added} events", "status": "success"}
+        
+    except Exception as e:
+        logger.error(f"Admin populate events failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     # Railway sets PORT, fallback to API_PORT, then default
     port = int(os.getenv("PORT", os.getenv("API_PORT", 8000)))
