@@ -125,7 +125,7 @@ def get_db_connection():
             ''')
             
             # Add a test event so API has data
-            from datetime import datetime
+            from datetime import datetime, timedelta
             import uuid
             
             venue_id = str(uuid.uuid4())
@@ -135,10 +135,12 @@ def get_db_connection():
             ''', [venue_id, 'Railway Test Venue', 'Copenhagen, Denmark', 'City Center'])
             
             event_id = str(uuid.uuid4())
+            # Create event 1 day in the future so it shows as "upcoming"
+            future_date = datetime.now() + timedelta(days=1)
             conn.execute('''
             INSERT INTO events (id, title, description, date_time, venue_id, source, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', [event_id, 'Railway Test Event', 'Auto-created test event', datetime.now(), venue_id, 'railway_init', 'active'])
+            ''', [event_id, 'Railway Test Event Tomorrow', 'Auto-created future test event', future_date, venue_id, 'railway_init', 'active'])
             
             conn.commit()
             logger.info("✅ Database created successfully with test data")
@@ -585,6 +587,42 @@ async def get_stats():
         
     except Exception as e:
         logger.error(f"Stats failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/add-test-event")
+async def add_test_event():
+    """Add a test event for demo purposes."""
+    
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    
+    try:
+        from datetime import datetime, timedelta
+        import uuid
+        
+        # Create a venue
+        venue_id = str(uuid.uuid4())
+        conn.execute('''
+        INSERT INTO venues (id, name, address, neighborhood)
+        VALUES (?, ?, ?, ?)
+        ''', [venue_id, 'Test Club Copenhagen', 'Nørrebro, Copenhagen', 'Nørrebro'])
+        
+        # Create an upcoming event
+        event_id = str(uuid.uuid4())
+        future_date = datetime.now() + timedelta(days=2)
+        conn.execute('''
+        INSERT INTO events (id, title, description, date_time, venue_id, source, status, price_min, price_max)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', [event_id, 'Electronic Music Night', 'Experience the best electronic music in Copenhagen', future_date, venue_id, 'admin', 'active', 150.0, 250.0])
+        
+        conn.commit()
+        conn.close()
+        
+        return {"message": "Test event created successfully", "event_id": event_id, "venue_id": venue_id}
+        
+    except Exception as e:
+        logger.error(f"Add test event failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
