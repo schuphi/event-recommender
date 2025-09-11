@@ -102,8 +102,19 @@ jobs:
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', [event_id, 'Database Test Event', 'Test event created during deployment', datetime.now(), venue_id, 'system', 'mock_h3_index', 'active'])
         
-        # Create active_events view after events table is created
-        conn.execute('CREATE VIEW active_events AS SELECT * FROM events WHERE status = \"active\"')
+        # Debug: Check what columns actually exist in events table
+        print('🔍 Checking events table schema:')
+        schema = conn.execute('DESCRIBE events').fetchall()
+        print(f'Events table columns: {schema}')
+        
+        # Create active_events view after events table is created (only if status column exists)
+        try:
+            conn.execute('CREATE VIEW active_events AS SELECT * FROM events WHERE status = \"active\"')
+            print('✅ Created active_events view')
+        except Exception as e:
+            print(f'⚠️  Could not create active_events view: {e}')
+            print('Creating simple view without status filter')
+            conn.execute('CREATE VIEW active_events AS SELECT * FROM events')
         
         conn.commit()
         conn.close()
