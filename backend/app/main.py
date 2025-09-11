@@ -35,10 +35,15 @@ app = FastAPI(
 )
 
 # Add CORS middleware
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
-# In production, be more restrictive
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003").split(",")
+# In production, be more restrictive but allow common localhost ports for development
 if os.getenv("ENVIRONMENT") == "production":
-    cors_origins = [origin.strip() for origin in cors_origins if origin.strip() != "*"]
+    # For Railway production, allow common development ports
+    default_dev_ports = [
+        "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", 
+        "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002"
+    ]
+    cors_origins = list(set(cors_origins + default_dev_ports))
     allow_all = False
 else:
     allow_all = True
