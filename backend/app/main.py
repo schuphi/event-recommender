@@ -87,7 +87,63 @@ def get_db_connection():
     try:
         if not Path(DATABASE_URL).exists():
             logger.warning(f"Database file not found at {DATABASE_URL}")
-            return None
+            logger.info("Creating new database with basic schema...")
+            
+            # Create directory if it doesn't exist
+            Path(DATABASE_URL).parent.mkdir(parents=True, exist_ok=True)
+            
+            # Create connection (will create file)
+            conn = duckdb.connect(DATABASE_URL)
+            
+            # Create basic tables that the API expects
+            conn.execute('''
+            CREATE TABLE IF NOT EXISTS venues (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                address TEXT,
+                neighborhood TEXT
+            )
+            ''')
+            
+            conn.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                description TEXT,
+                date_time TIMESTAMP,
+                end_date_time TIMESTAMP,
+                price_min REAL,
+                price_max REAL,
+                currency TEXT DEFAULT 'DKK',
+                venue_id TEXT,
+                source TEXT,
+                source_url TEXT,
+                image_url TEXT,
+                popularity_score REAL DEFAULT 0.0,
+                status TEXT DEFAULT 'active'
+            )
+            ''')
+            
+            # Add a test event so API has data
+            from datetime import datetime
+            import uuid
+            
+            venue_id = str(uuid.uuid4())
+            conn.execute('''
+            INSERT INTO venues (id, name, address, neighborhood)
+            VALUES (?, ?, ?, ?)
+            ''', [venue_id, 'Railway Test Venue', 'Copenhagen, Denmark', 'City Center'])
+            
+            event_id = str(uuid.uuid4())
+            conn.execute('''
+            INSERT INTO events (id, title, description, date_time, venue_id, source, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', [event_id, 'Railway Test Event', 'Auto-created test event', datetime.now(), venue_id, 'railway_init', 'active'])
+            
+            conn.commit()
+            logger.info("✅ Database created successfully with test data")
+            return conn
+            
         return duckdb.connect(DATABASE_URL)
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
