@@ -19,6 +19,8 @@ interface Event {
   venue_neighborhood: string;
   genres: string[];
   popularity_score: number;
+  source: string;
+  source_url?: string;
 }
 
 interface FilterState {
@@ -28,12 +30,15 @@ interface FilterState {
   dateFilter: string;
 }
 
-const API_BASE_URL = 'https://event-recommender-production.up.railway.app';
+const API_BASE_URL = 'http://localhost:8000';
 
 export function EventFeed() {
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>({
     genres: [],
@@ -56,7 +61,7 @@ export function EventFeed() {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/events?upcoming_only=false`);
+        const response = await fetch(`${API_BASE_URL}/events?upcoming_only=true&limit=50`);
         if (!response.ok) {
           throw new Error('Failed to fetch events');
         }
@@ -74,6 +79,8 @@ export function EventFeed() {
           price_max: event.price_max || 0,
           currency: event.currency || 'DKK',
           popularity_score: event.popularity_score || 0,
+          source: event.source || 'unknown',
+          source_url: event.source_url || null,
         }));
         
         // Remove duplicates by title and venue using Map for better performance
@@ -88,6 +95,14 @@ export function EventFeed() {
         
         setEvents(uniqueEvents);
         setFilteredEvents(uniqueEvents);
+
+        // Check if we have fewer events than requested, meaning no more to load
+        if (uniqueEvents.length < 50) {
+          setHasMore(false);
+        }
+
+        // Set initial page based on events loaded
+        setCurrentPage(Math.floor(uniqueEvents.length / 20));
       } catch (error) {
         console.error('Error fetching events:', error);
         toast({
@@ -105,6 +120,68 @@ export function EventFeed() {
 
     fetchEvents();
   }, [toast]);
+
+  // Load more events function
+  const loadMoreEvents = async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+      const offset = nextPage * 20;
+
+      const response = await fetch(`${API_BASE_URL}/events?upcoming_only=true&limit=20&offset=${offset}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch more events');
+      }
+
+      const data = await response.json();
+      const eventsData = Array.isArray(data) ? data : [];
+
+      if (eventsData.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      const safeEvents = eventsData.map(event => ({
+        ...event,
+        genres: event.genres || [],
+        title: event.title || 'Untitled Event',
+        description: event.description || '',
+        venue_name: event.venue_name || 'Unknown Venue',
+        venue_neighborhood: event.venue_neighborhood || 'Unknown',
+        price_min: event.price_min || 0,
+        price_max: event.price_max || 0,
+        currency: event.currency || 'DKK',
+        popularity_score: event.popularity_score || 0,
+        source: event.source || 'unknown',
+        source_url: event.source_url || null,
+      }));
+
+      // Add new events to existing ones, avoiding duplicates
+      setEvents(prevEvents => {
+        const existingIds = new Set(prevEvents.map(e => e.id));
+        const newEvents = safeEvents.filter(e => !existingIds.has(e.id));
+        return [...prevEvents, ...newEvents];
+      });
+
+      setCurrentPage(nextPage);
+
+      if (eventsData.length < 20) {
+        setHasMore(false);
+      }
+
+    } catch (error) {
+      console.error('Error loading more events:', error);
+      toast({
+        title: "Error loading more events",
+        description: "Could not load additional events. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Apply filters and search
   useEffect(() => {
@@ -154,6 +231,19 @@ export function EventFeed() {
 
   const handleLike = async (eventId: string) => {
     try {
+      // Update local storage for match algorithm
+      const userLikes = JSON.parse(localStorage.getItem('user_likes') || '[]');
+      const userDislikes = JSON.parse(localStorage.getItem('user_dislikes') || '[]');
+
+      if (!userLikes.includes(eventId)) {
+        userLikes.push(eventId);
+        localStorage.setItem('user_likes', JSON.stringify(userLikes));
+      }
+
+      // Remove from dislikes if present
+      const updatedDislikes = userDislikes.filter(id => id !== eventId);
+      localStorage.setItem('user_dislikes', JSON.stringify(updatedDislikes));
+
       // Record interaction with API
       await fetch(`${API_BASE_URL}/interactions`, {
         method: 'POST',
@@ -179,6 +269,20 @@ export function EventFeed() {
 
   const handleDislike = async (eventId: string) => {
     try {
+      // Update local storage for match algorithm
+      const userLikes = JSON.parse(localStorage.getItem('user_likes') || '[]');
+      const userDislikes = JSON.parse(localStorage.getItem('user_dislikes') || '[]');
+
+      if (!userDislikes.includes(eventId)) {
+        userDislikes.push(eventId);
+        localStorage.setItem('user_dislikes', JSON.stringify(userDislikes));
+      }
+
+      // Remove from likes if present
+      const updatedLikes = userLikes.filter(id => id !== eventId);
+      localStorage.setItem('user_likes', JSON.stringify(updatedLikes));
+
+      // Record interaction with API
       await fetch(`${API_BASE_URL}/interactions`, {
         method: 'POST',
         headers: {
@@ -194,7 +298,7 @@ export function EventFeed() {
 
       // Remove from current view
       setFilteredEvents(prev => prev.filter(event => event.id !== eventId));
-      
+
       toast({
         title: "Got it!",
         description: "We'll show you fewer events like this.",
@@ -314,16 +418,31 @@ export function EventFeed() {
           </div>
         )}
 
-        {/* Load more placeholder */}
-        {filteredEvents.length > 0 && (
+        {/* Load more button */}
+        {filteredEvents.length > 0 && hasMore && (
           <div className="text-center mt-12">
             <Button
               variant="outline"
               className="glass border-primary/30 hover:bg-primary/10"
+              onClick={loadMoreEvents}
+              disabled={loadingMore}
             >
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Loading more events...
+              {loadingMore ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading more events...
+                </>
+              ) : (
+                'Load more events'
+              )}
             </Button>
+          </div>
+        )}
+
+        {/* No more events message */}
+        {filteredEvents.length > 0 && !hasMore && (
+          <div className="text-center mt-12">
+            <p className="text-muted-foreground">That's all the events we have for now!</p>
           </div>
         )}
       </div>
