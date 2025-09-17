@@ -1,0 +1,214 @@
+# Copenhagen Event Recommender - Docker Compose Configuration
+# Complete production-ready containerized deployment
+
+version: '3.8'
+
+services:
+  # Main API Service
+  api:
+    build:
+      context: ../..
+      dockerfile: config/docker/Dockerfile
+      target: production
+    container_name: event-recommender-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=data/events/events.duckdb
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - ENABLE_METRICS=true
+      - LOG_LEVEL=INFO
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      - LASTFM_API_KEY=${LASTFM_API_KEY:-}
+      - EVENTBRITE_API_TOKEN=${EVENTBRITE_API_TOKEN:-}
+      - MEETUP_API_KEY=${MEETUP_API_KEY:-}
+      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-}
+      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD:-}
+    volumes:
+      - event_data:/app/data
+      - model_data:/app/models
+      - log_data:/app/logs
+      - cache_data:/app/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - redis
+    networks:
+      - event_network
+
+  # Data Collection Service
+  data-collector:
+    build:
+      context: ../..
+      dockerfile: config/docker/Dockerfile
+      target: production
+    container_name: event-recommender-collector
+    command: ["python", "data-collection/pipeline/integrated_data_pipeline.py"]
+    environment:
+      - DATABASE_URL=data/events/events.duckdb
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      - LASTFM_API_KEY=${LASTFM_API_KEY:-}
+      - EVENTBRITE_API_TOKEN=${EVENTBRITE_API_TOKEN:-}
+      - MEETUP_API_KEY=${MEETUP_API_KEY:-}
+      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-}
+      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD:-}
+      - COLLECTION_SCHEDULE=0 */6 * * *  # Every 6 hours
+      - ENABLE_INSTAGRAM_SCRAPING=true
+      - ENABLE_TIKTOK_SCRAPING=true
+    volumes:
+      - event_data:/app/data
+      - cache_data:/app/cache
+      - log_data:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - event_network
+
+  # ML Training Service
+  ml-trainer:
+    build:
+      context: ../..
+      dockerfile: config/docker/Dockerfile
+      target: production
+    container_name: event-recommender-ml
+    command: ["python", "ml/production/production_pipeline.py"]
+    environment:
+      - DATABASE_URL=data/events/events.duckdb
+      - MODEL_TRAINING_SCHEDULE=0 2 * * *  # Daily at 2 AM
+      - ENABLE_GPU=false
+    volumes:
+      - event_data:/app/data
+      - model_data:/app/models
+      - log_data:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - event_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: event-recommender-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - event_network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: event-recommender-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - log_data:/var/log/nginx
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - event_network
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: event-recommender-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - event_network
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: event-recommender-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - event_network
+
+  # Log Management
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.10.0
+    container_name: event-recommender-filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - log_data:/var/log/app:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - event_network
+
+volumes:
+  event_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  model_data:
+    driver: local
+  redis_data:
+    driver: local
+  log_data:
+    driver: local
+  cache_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  event_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

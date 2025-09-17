@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     )
 
     # Database Configuration
-    DATABASE_URL: str = Field(default="../../data/events.duckdb", env="DATABASE_URL")
+    DATABASE_URL: str = Field(default="../../data/events/events.duckdb", env="DATABASE_URL")
     DB_POOL_SIZE: int = Field(default=10, env="DB_POOL_SIZE")
 
     # ML Model Configuration

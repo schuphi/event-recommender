@@ -43,7 +43,7 @@
       "Bash(wmic process:*)",
       "Bash(PYTHONPATH=../.. python runner.py --source all --max-events 50)",
       "Bash(PYTHONPATH=../.. python -c \"from data_collection.scrapers.official_apis.scandinavia_standard import ScandinaviaStandardScraper; print(''Import works'')\")",
-      "Bash(EVENTBRITE_API_TOKEN=V3V4RPQNECQVEQYFSFQ7 python runner.py --source all --max-events 50)",
+      "Bash(EVENTBRITE_API_TOKEN=your_token_here python runner.py --source all --max-events 50)",
       "WebFetch(domain:www.eventbrite.com)",
       "Bash(DATABASE_URL=data/events.duckdb python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000)",
       "Bash(DATABASE_URL=data/events.duckdb python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload)",

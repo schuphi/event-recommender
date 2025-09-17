@@ -31,9 +31,9 @@ jobs:
 
     - name: Initialize database with existing complex schema
       run: |
-        mkdir -p data
+        mkdir -p data/events
         # Remove any existing database file to start clean
-        rm -f ./data/events.duckdb
+        rm -f ./data/events/events.duckdb
         
         # Create database with the same schema as database/schema.sql but simplified
         python -c "
@@ -41,7 +41,7 @@ jobs:
         from datetime import datetime
         import uuid
         
-        conn = duckdb.connect('./data/events.duckdb')
+        conn = duckdb.connect('./data/events/events.duckdb')
         
         # Create venues table with exact schema that exists in Railway
         conn.execute('''
@@ -103,22 +103,22 @@ jobs:
         ''', [event_id, 'Database Test Event', 'Test event created during deployment', datetime.now(), venue_id, 'system', 'mock_h3_index', 'active'])
         
         # Debug: Check what columns actually exist in events table
-        print('🔍 Checking events table schema:')
+        print('Checking events table schema:')
         schema = conn.execute('DESCRIBE events').fetchall()
         print(f'Events table columns: {schema}')
         
         # Create active_events view after events table is created (only if status column exists)
         try:
             conn.execute('CREATE VIEW active_events AS SELECT * FROM events WHERE status = \"active\"')
-            print('✅ Created active_events view')
+            print('Created active_events view')
         except Exception as e:
-            print(f'⚠️  Could not create active_events view: {e}')
+            print(f'Could not create active_events view: {e}')
             print('Creating simple view without status filter')
             conn.execute('CREATE VIEW active_events AS SELECT * FROM events')
         
         conn.commit()
         conn.close()
-        print('✅ Database initialized with complex schema')
+        print('Database initialized with complex schema')
         "
         
     - name: Download existing database (if exists)
@@ -131,7 +131,7 @@ jobs:
 
     - name: Run event scrapers
       env:
-        DATABASE_URL: ./data/events.duckdb
+        DATABASE_URL: ./data/events/events.duckdb
         PYTHONPATH: ${{ github.workspace }}
       run: |
         echo "Populating real Copenhagen events..."
@@ -143,7 +143,7 @@ jobs:
 
     - name: Run social scrapers
       env:
-        DATABASE_URL: ./data/events.duckdb
+        DATABASE_URL: ./data/events/events.duckdb
         PYTHONPATH: ${{ github.workspace }}
         # Add social media API keys as secrets
         INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
@@ -156,11 +156,11 @@ jobs:
 
     - name: Validate database
       env:
-        DATABASE_URL: ./data/events.duckdb
+        DATABASE_URL: ./data/events/events.duckdb
       run: |
         python -c "
         import duckdb
-        conn = duckdb.connect('./data/events.duckdb')
+        conn = duckdb.connect('./data/events/events.duckdb')
         count = conn.execute('SELECT COUNT(*) FROM events WHERE date_time > CURRENT_DATE').fetchone()[0]
         print(f'Found {count} upcoming events')
         conn.close()
@@ -170,7 +170,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: events-database-${{ github.run_number }}
-        path: data/events.duckdb
+        path: data/events/events.duckdb
         retention-days: 7
 
     - name: Sync database to Railway
@@ -191,7 +191,7 @@ jobs:
         python -c "
         import duckdb
         from datetime import datetime
-        conn = duckdb.connect('./data/events.duckdb')
+        conn = duckdb.connect('./data/events/events.duckdb')
         
         total = conn.execute('SELECT COUNT(*) FROM events').fetchone()[0]
         upcoming = conn.execute('SELECT COUNT(*) FROM events WHERE date_time > CURRENT_TIMESTAMP').fetchone()[0]

@@ -51,9 +51,9 @@ jobs:
         python -c "
         try:
             from app.main import app
-            print('✅ FastAPI app imports successfully')
+            print('FastAPI app imports successfully')
         except Exception as e:
-            print(f'❌ Import failed: {e}')
+            print(f'Import failed: {e}')
             exit(1)
         "
         echo "API test completed"
@@ -76,13 +76,13 @@ jobs:
       run: |
         echo "Testing Railway-compatible Docker build..."
         docker build --target production -t test-railway .
-        echo "✅ Docker build successful"
+        echo "Docker build successful"
     
     - name: Test container startup
       run: |
         echo "Testing container startup..."
         docker run -d --name test-container -p 8000:8000 \
-          -e DATABASE_URL=/app/data/events.duckdb \
+          -e DATABASE_URL=/app/data/events/events.duckdb \
           -e PORT=8000 \
           test-railway
         
@@ -91,9 +91,9 @@ jobs:
         
         # Test health endpoint
         if curl -f http://localhost:8000/health; then
-          echo "✅ Health check passed"
+          echo "Health check passed"
         else
-          echo "❌ Health check failed"
+          echo "Health check failed"
           docker logs test-container
           exit 1
         fi
@@ -111,13 +111,13 @@ jobs:
     steps:
     - name: Report Results
       run: |
-        echo "🚀 Copenhagen Event Recommender CI Summary"
+        echo "Copenhagen Event Recommender CI Summary"
         echo "=========================================="
         echo "Quick Test: ${{ needs.quick-test.result }}"
         echo "Railway Deploy Test: ${{ needs.railway-deploy-test.result }}"
         
         if [[ "${{ needs.quick-test.result }}" == "success" && "${{ needs.railway-deploy-test.result }}" == "success" ]]; then
-          echo "✅ All checks passed - Ready for Railway deployment!"
+          echo "All checks passed - Ready for Railway deployment!"
         else
-          echo "❌ Some checks failed - Review logs before deploying"
+          echo "Some checks failed - Review logs before deploying"
         fi

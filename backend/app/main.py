@@ -148,7 +148,7 @@ def get_db_connection():
             ''', [event_id, 'Railway Test Event Tomorrow', 'Auto-created future test event', future_date, venue_id, 'railway_init', 'active'])
             
             conn.commit()
-            logger.info("✅ Database created successfully with test data")
+            logger.info("Database created successfully with test data")
             return conn
             
         return duckdb.connect(DATABASE_URL)

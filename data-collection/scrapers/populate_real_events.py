@@ -203,7 +203,7 @@ def populate_events():
     
     conn = duckdb.connect(DATABASE_URL)
     
-    logger.info("🎭 Populating database with real Copenhagen September 2025 events...")
+    logger.info("Populating database with real Copenhagen September 2025 events...")
     
     events_added = 0
     
@@ -243,12 +243,12 @@ def populate_events():
         ])
         
         events_added += 1
-        logger.info(f"✅ Added: {event_data['title']} at {event_data['venue_name']}")
+        logger.info(f"Added: {event_data['title']} at {event_data['venue_name']}")
     
     conn.commit()
     conn.close()
     
-    logger.info(f"🎉 Successfully added {events_added} real Copenhagen events!")
+    logger.info(f"Successfully added {events_added} real Copenhagen events!")
     return events_added
 
 if __name__ == "__main__":

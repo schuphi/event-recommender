@@ -40,8 +40,8 @@ jobs:
         api_url = os.getenv('API_URL')
         
         if not api_url:
-            print('⚠️  No Railway API URL configured yet')
-            print('📋 To enable monitoring:')
+            print('No Railway API URL configured yet')
+            print('To enable monitoring:')
             print('   1. Deploy to Railway first')
             print('   2. Add RAILWAY_API_URL secret in GitHub')
             print('   3. Re-run this workflow')
@@ -50,14 +50,14 @@ jobs:
         def test_endpoint(endpoint, expected_status=200):
             try:
                 response = requests.get(f'{api_url}{endpoint}', timeout=30)
-                print(f'✅ {endpoint}: {response.status_code} - {response.reason}')
+                print(f'{endpoint}: {response.status_code} - {response.reason}')
                 return response.status_code == expected_status
             except Exception as e:
-                print(f'❌ {endpoint}: Error - {str(e)}')
+                print(f'{endpoint}: Error - {str(e)}')
                 return False
         
-        print(f'🔍 Testing API at {api_url}')
-        print(f'📅 Timestamp: {datetime.now()}')
+        print(f'Testing API at {api_url}')
+        print(f'Timestamp: {datetime.now()}')
         print()
         
         # Test endpoints
@@ -75,10 +75,10 @@ jobs:
         
         # Overall health
         if all(results):
-            print('\\n🟢 All systems operational')
+            print('\\nAll systems operational')
             sys.exit(0)
         else:
-            print('\\n🔴 System degraded')
+            print('\\nSystem degraded')
             sys.exit(1)
         "
 
@@ -94,14 +94,14 @@ jobs:
         
         api_url = os.getenv('API_URL')
         if not api_url:
-            print('⚠️  Skipping database health check - no Railway URL configured')
+            print('Skipping database health check - no Railway URL configured')
             exit(0)
         
         try:
             response = requests.get(f'{api_url}/health', timeout=30)
             health_data = response.json()
             
-            print('📊 Database Health:')
+            print('Database Health:')
             print(f'   Status: {health_data.get(\"database_status\", \"unknown\")}')
             print(f'   Total Events: {health_data.get(\"events_count\", 0)}')
             print(f'   Upcoming Events: {health_data.get(\"upcoming_events\", 0)}')
@@ -109,10 +109,10 @@ jobs:
             # Alert if low event count
             upcoming = health_data.get('upcoming_events', 0)
             if upcoming < 10:
-                print('⚠️  Warning: Low upcoming event count!')
+                print('Warning: Low upcoming event count!')
                 
         except Exception as e:
-            print(f'❌ Database health check failed: {e}')
+            print(f'Database health check failed: {e}')
         "
 
     - name: Test Performance
@@ -140,16 +140,16 @@ jobs:
                 time.sleep(1)
             return mean(times) if times else None
         
-        print('⚡ Performance Check:')
+        print('Performance Check:')
         
         endpoints = ['/health', '/events?limit=10', '/stats']
         for endpoint in endpoints:
             avg_time = measure_response_time(endpoint)
             if avg_time:
-                status = '🟢' if avg_time < 1000 else '🟡' if avg_time < 3000 else '🔴'
+                status = 'GOOD' if avg_time < 1000 else 'OK' if avg_time < 3000 else 'SLOW'
                 print(f'   {endpoint}: {avg_time:.0f}ms {status}')
             else:
-                print(f'   {endpoint}: Failed ❌')
+                print(f'   {endpoint}: Failed')
         "
 
   create-issue-on-failure:
@@ -160,7 +160,7 @@ jobs:
     steps:
     - name: Log Failure
       run: |
-        echo "🚨 System Health Check Failed - $(date)"
+        echo "System Health Check Failed - $(date)"
         echo "This would create an issue, but requires additional GitHub permissions"
         echo "Manual action required: Check Railway deployment status"
 
@@ -211,6 +211,6 @@ jobs:
 
     - name: Display Weekly Report
       run: |
-        echo "📊 Weekly System Report - $(date)"
+        echo "Weekly System Report - $(date)"
         echo "Report would be posted as GitHub issue (requires additional permissions)"
         echo "For now, check the workflow logs for the report details"

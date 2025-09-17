@@ -285,7 +285,7 @@ jobs:
     
     - name: Run security-focused tests
       run: |
-        python run_tests.py security
+        python scripts/testing/run_tests.py security
       env:
         DATABASE_URL: test_events.duckdb
         TESTING: true
@@ -339,9 +339,9 @@ jobs:
         if [ "${{ needs.sast.result }}" = "success" ] && 
            [ "${{ needs.dependency-scan.result }}" = "success" ] &&
            [ "${{ needs.docker-security.result }}" = "success" ]; then
-          echo "✅ All critical security scans passed"
+          echo "All critical security scans passed"
         else
-          echo "⚠️  Some security scans reported issues - review artifacts"
+          echo "Some security scans reported issues - review artifacts"
         fi
 
   # Security Alert on Critical Issues
@@ -354,7 +354,7 @@ jobs:
     steps:
     - name: Log security alert
       run: |
-        echo "🚨 Security Scan Alert - $(date)"
+        echo "Security Scan Alert - $(date)"
         echo "Failed Jobs:"
         echo "- SAST: ${{ needs.sast.result }}"
         echo "- Dependency Scan: ${{ needs.dependency-scan.result }}"

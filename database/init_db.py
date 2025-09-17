@@ -21,7 +21,7 @@ COPENHAGEN_BOUNDS = {
 }
 
 
-def init_database(db_path: str = "data/events.duckdb"):
+def init_database(db_path: str = "data/events/events.duckdb"):
     """Initialize database with schema and sample data."""
 
     # Ensure data directory exists
@@ -44,7 +44,7 @@ def init_database(db_path: str = "data/events.duckdb"):
             print(f"Error executing statement: {e}")
             print(f"Statement: {stmt[:100]}...")
 
-    print("✓ Database schema created")
+    print("Database schema created")
 
     # Insert sample venues
     venues = [
@@ -114,7 +114,7 @@ def init_database(db_path: str = "data/events.duckdb"):
             ],
         )
 
-    print(f"✓ Inserted {len(venues)} sample venues")
+    print(f"Inserted {len(venues)} sample venues")
 
     # Insert sample artists
     artists = [
@@ -158,7 +158,7 @@ def init_database(db_path: str = "data/events.duckdb"):
             ],
         )
 
-    print(f"✓ Inserted {len(artists)} sample artists")
+    print(f"Inserted {len(artists)} sample artists")
 
     # Insert sample events
     events = []
@@ -216,7 +216,7 @@ def init_database(db_path: str = "data/events.duckdb"):
                 [event["id"], artist_id, True],
             )
 
-    print(f"✓ Inserted {len(events)} sample events")
+    print(f"Inserted {len(events)} sample events")
 
     # Create sample users with preferences
     users = [
@@ -264,7 +264,7 @@ def init_database(db_path: str = "data/events.duckdb"):
             ],
         )
 
-    print(f"✓ Inserted {len(users)} sample users")
+    print(f"Inserted {len(users)} sample users")
 
     # Insert sample interactions for collaborative filtering
     interactions = [
@@ -308,11 +308,11 @@ def init_database(db_path: str = "data/events.duckdb"):
             ],
         )
 
-    print(f"✓ Inserted {len(interactions)} sample interactions")
+    print(f"Inserted {len(interactions)} sample interactions")
 
     # Verify database
     result = conn.execute("SELECT COUNT(*) FROM events").fetchone()
-    print(f"✓ Database ready with {result[0]} events")
+    print(f"Database ready with {result[0]} events")
 
     conn.close()
 
