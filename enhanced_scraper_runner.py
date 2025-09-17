@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 """
-Enhanced scraper runner combining venue website scraping with Eventbrite API.
-Replaces the old scheduler system with a unified real event collection system.
+Enhanced scraper runner that combines venue website scraping with Eventbrite organization API.
+This is the main scraper called by scheduler.py for comprehensive event collection.
 """
 
 import os
 import sys
-import duckdb
-import uuid
-import h3
+import requests
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
 
-# Add paths
+# Add the venue scrapers directory to Python path
 sys.path.append(str(Path(__file__).parent / "data-collection" / "scrapers" / "venue_scrapers"))
-sys.path.append(str(Path(__file__).parent / "data-collection" / "scrapers" / "official_apis"))
 
-from copenhagen_venues import CopenhagenVenueScraper
-from eventbrite import EventbriteScraper
+from copenhagen_venues import CopenhagenVenueScraper, VenueEvent
 
 # Load environment variables
 load_dotenv()
@@ -28,254 +24,199 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class EnhancedScraperDatabase:
-    """Enhanced database integration for multiple scraper types."""
+class EventbriteOrganizationScraper:
+    """Scraper for specific Copenhagen organizations on Eventbrite."""
 
     def __init__(self):
-        self.db_path = os.getenv("DATABASE_URL", "data/events.duckdb")
+        self.api_token = os.getenv('EVENTBRITE_API_TOKEN')
+        self.base_url = 'https://www.eventbriteapi.com/v3'
 
-    def connect_db(self):
-        """Connect to DuckDB database."""
-        return duckdb.connect(self.db_path)
-
-    def store_venue_if_not_exists(self, conn, venue_data):
-        """Store venue if it doesn't exist, return venue_id."""
-        existing = conn.execute(
-            "SELECT id FROM venues WHERE name = ? AND address = ?",
-            [venue_data['name'], venue_data['address']]
-        ).fetchone()
-
-        if existing:
-            return existing[0]
-
-        venue_id = str(uuid.uuid4())
-        h3_index = h3.latlng_to_cell(venue_data['lat'], venue_data['lon'], 8)
-
-        conn.execute("""
-            INSERT INTO venues (id, name, address, lat, lon, h3_index, venue_type, capacity, neighborhood)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, [
-            venue_id, venue_data['name'], venue_data['address'],
-            venue_data['lat'], venue_data['lon'], h3_index,
-            venue_data.get('venue_type', 'venue'), 
-            venue_data.get('capacity', 500), 
-            venue_data.get('neighborhood', 'Copenhagen')
-        ])
-
-        return venue_id
-
-    def store_events(self, events, source_name):
-        """Store events from any source in database."""
-        conn = self.connect_db()
-        stored_count = 0
-        updated_count = 0
-        skipped_count = 0
-
-        logger.info(f"Storing {len(events)} events from {source_name}...")
-
-        for event in events:
-            try:
-                # Handle different event types
-                if hasattr(event, 'venue_name'):  # Venue scraper event
-                    venue_data = {
-                        'name': event.venue_name,
-                        'address': event.venue_address,
-                        'lat': event.venue_lat,
-                        'lon': event.venue_lon
-                    }
-                    title = event.title
-                    description = event.description
-                    date_time = event.date_time
-                    end_date_time = event.end_date_time
-                    price_min = event.price_min
-                    price_max = event.price_max
-                    source = event.source
-                    
-                elif hasattr(event, 'venue_lat'):  # Eventbrite event
-                    venue_data = {
-                        'name': event.venue_name,
-                        'address': event.venue_address,
-                        'lat': event.venue_lat,
-                        'lon': event.venue_lon
-                    }
-                    title = event.title
-                    description = event.description
-                    date_time = event.start_time
-                    end_date_time = event.end_time
-                    price_min = event.price_min
-                    price_max = event.price_max
-                    source = 'eventbrite'
-                else:
-                    logger.warning(f"Unknown event type: {type(event)}")
-                    continue
-
-                # Skip events without proper dates
-                if not date_time:
-                    skipped_count += 1
-                    continue
-
-                # Skip past events
-                if date_time <= datetime.now():
-                    skipped_count += 1
-                    continue
-
-                # Store venue
-                venue_id = self.store_venue_if_not_exists(conn, venue_data)
-
-                # Check if event already exists
-                existing = conn.execute("""
-                    SELECT id FROM events
-                    WHERE title = ? AND venue_id = ? AND date_time = ?
-                """, [title, venue_id, date_time]).fetchone()
-
-                if existing:
-                    # Update existing event
-                    conn.execute("""
-                        UPDATE events SET
-                            description = ?, end_date_time = ?, price_min = ?, price_max = ?,
-                            source = ?, updated_at = ?
-                        WHERE id = ?
-                    """, [
-                        description, end_date_time, price_min, price_max,
-                        source, datetime.now(), existing[0]
-                    ])
-                    updated_count += 1
-                    continue
-
-                # Store new event
-                event_id = str(uuid.uuid4())
-                h3_index = h3.latlng_to_cell(venue_data['lat'], venue_data['lon'], 8)
-
-                conn.execute("""
-                    INSERT INTO events (
-                        id, title, description, date_time, end_date_time,
-                        price_min, price_max, currency, venue_id,
-                        source, h3_index, popularity_score, status, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, [
-                    event_id, title, description,
-                    date_time, end_date_time,
-                    price_min, price_max, 'DKK',
-                    venue_id, source, h3_index,
-                    0.7, 'active', datetime.now(), datetime.now()
-                ])
-
-                stored_count += 1
-
-            except Exception as e:
-                logger.error(f"Failed to store event '{getattr(event, 'title', 'Unknown')}': {e}")
-                continue
-
-        conn.close()
-        
-        logger.info(f"{source_name}: {stored_count} stored, {updated_count} updated, {skipped_count} skipped")
-        return stored_count, updated_count, skipped_count
-
-    def get_database_stats(self):
-        """Get current database statistics."""
-        conn = self.connect_db()
-        
-        total_events = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
-        upcoming_events = conn.execute(
-            "SELECT COUNT(*) FROM events WHERE date_time > ?",
-            [datetime.now()]
-        ).fetchone()[0]
-
-        source_breakdown = conn.execute("""
-            SELECT source, COUNT(*) as count
-            FROM events
-            WHERE date_time > ?
-            GROUP BY source
-            ORDER BY count DESC
-        """, [datetime.now()]).fetchall()
-
-        conn.close()
-        
-        return {
-            'total_events': total_events,
-            'upcoming_events': upcoming_events,
-            'source_breakdown': dict(source_breakdown)
+        # Known Copenhagen venue organizations on Eventbrite
+        # These would need to be populated with actual organization IDs
+        self.copenhagen_organizations = {
+            # Format: 'organization_name': 'organization_id'
+            # Example: 'Vega Copenhagen': '123456789'
         }
+
+    def scrape_organization_events(self, org_id: str, org_name: str) -> list:
+        """Scrape events from a specific Eventbrite organization."""
+        events = []
+
+        if not self.api_token:
+            logger.warning("No Eventbrite API token provided")
+            return events
+
+        try:
+            url = f"{self.base_url}/organizations/{org_id}/events/"
+            headers = {
+                'Authorization': f'Bearer {self.api_token}',
+                'Content-Type': 'application/json'
+            }
+
+            params = {
+                'status': 'live,started,ended',
+                'order_by': 'start_asc',
+                'time_filter': 'current_future',
+                'expand': 'venue,ticket_availability'
+            }
+
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+
+            data = response.json()
+
+            for event_data in data.get('events', []):
+                try:
+                    event = self._parse_eventbrite_event(event_data, org_name)
+                    if event:
+                        events.append(event)
+                except Exception as e:
+                    logger.warning(f"Failed to parse Eventbrite event: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Failed to fetch events from organization {org_name}: {e}")
+
+        return events
+
+    def _parse_eventbrite_event(self, event_data: dict, org_name: str):
+        """Parse Eventbrite event data into VenueEvent format."""
+        try:
+            # Extract basic info
+            event_id = event_data.get('id')
+            name = event_data.get('name', {}).get('text', '')
+            description = event_data.get('description', {}).get('text', '')
+
+            # Parse dates
+            start_time = event_data.get('start', {}).get('local', '')
+            end_time = event_data.get('end', {}).get('local', '')
+
+            if start_time:
+                start_datetime = datetime.fromisoformat(start_time.replace('Z', ''))
+            else:
+                return None
+
+            end_datetime = None
+            if end_time:
+                end_datetime = datetime.fromisoformat(end_time.replace('Z', ''))
+
+            # Extract venue info
+            venue_data = event_data.get('venue')
+            venue_name = venue_data.get('name', org_name) if venue_data else org_name
+            venue_address = venue_data.get('address', {}).get('localized_address_display', '') if venue_data else ''
+
+            # Default Copenhagen coordinates if no venue location
+            lat = 55.6761
+            lon = 12.5683
+
+            if venue_data:
+                lat = float(venue_data.get('latitude', lat))
+                lon = float(venue_data.get('longitude', lon))
+
+            # Extract pricing
+            is_free = event_data.get('is_free', False)
+            price_min = 0.0 if is_free else None
+            price_max = None
+
+            # Event URL
+            event_url = event_data.get('url', '')
+
+            return VenueEvent(
+                title=name,
+                description=description[:500] if description else name,  # Limit description length
+                date_time=start_datetime,
+                end_date_time=end_datetime,
+                venue_name=venue_name,
+                venue_address=venue_address,
+                venue_lat=lat,
+                venue_lon=lon,
+                price_min=price_min,
+                price_max=price_max,
+                source=f'eventbrite_{org_name.lower().replace(" ", "_")}',
+                ticket_url=event_url,
+                artist=name
+            )
+
+        except Exception as e:
+            logger.warning(f"Error parsing Eventbrite event: {e}")
+            return None
 
 
 def run_enhanced_scraping():
-    """Main function to run all real event scrapers."""
-    print("=== Enhanced Copenhagen Event Scraping ===")
-    
-    db = EnhancedScraperDatabase()
-    total_stored = 0
-    total_updated = 0
-    
-    # 1. Run venue website scrapers
-    print("\n1. Scraping venue websites...")
+    """Run comprehensive event scraping from all sources."""
+    logger.info("=== Starting Enhanced Event Scraping ===")
+
+    # Initialize scrapers
+    venue_scraper = CopenhagenVenueScraper()
+    eventbrite_scraper = EventbriteOrganizationScraper()
+
+    total_events = []
+
+    # 1. Scrape venue websites
+    logger.info("Scraping venue websites...")
     try:
-        venue_scraper = CopenhagenVenueScraper()
         venue_events = venue_scraper.scrape_all_venues(days_ahead=90)
-        
-        if venue_events:
-            stored, updated, skipped = db.store_events(venue_events, "Venue Websites")
-            total_stored += stored
-            total_updated += updated
-            print(f"   ✅ Venue scraping: {stored} new, {updated} updated")
-        else:
-            print("   ⚠️ No venue events found")
-            
+        total_events.extend(venue_events)
+        logger.info(f"Found {len(venue_events)} events from venue websites")
     except Exception as e:
-        print(f"   ❌ Venue scraping failed: {e}")
+        logger.error(f"Failed to scrape venue websites: {e}")
 
-    # 2. Eventbrite API integration (placeholder for future implementation)
-    print("\n2. Eventbrite API integration...")
-    eventbrite_token = os.getenv("EVENTBRITE_API_TOKEN")
-    
-    if eventbrite_token:
-        print(f"   ✅ Eventbrite token configured: {eventbrite_token[:10]}...")
-        print("   ℹ️ Eventbrite API integration available for future enhancement")
-        # Note: Eventbrite API endpoint structure has changed, needs investigation
+    # 2. Scrape Eventbrite organizations (if API token available)
+    logger.info("Scraping Eventbrite organizations...")
+    eventbrite_total = 0
+
+    for org_name, org_id in eventbrite_scraper.copenhagen_organizations.items():
+        try:
+            org_events = eventbrite_scraper.scrape_organization_events(org_id, org_name)
+            total_events.extend(org_events)
+            eventbrite_total += len(org_events)
+            logger.info(f"Found {len(org_events)} events from {org_name}")
+        except Exception as e:
+            logger.warning(f"Failed to scrape {org_name}: {e}")
+
+    logger.info(f"Found {eventbrite_total} events from Eventbrite organizations")
+
+    # 3. Store all events in database
+    if total_events:
+        logger.info(f"Storing {len(total_events)} total events in database...")
+
+        # Import the database storage class
+        sys.path.append(str(Path(__file__).parent))
+        from venue_scraper_runner import VenueScraperDatabase
+
+        db = VenueScraperDatabase()
+        result = db.store_scraped_events(total_events)
+        return result
     else:
-        print("   ⚠️ Eventbrite API token not configured")
-
-    # 3. Show final statistics
-    print("\n=== SCRAPING COMPLETED ===")
-    stats = db.get_database_stats()
-    
-    print(f"Total new events: {total_stored}")
-    print(f"Total updated events: {total_updated}")
-    print(f"Database total: {stats['total_events']} events")
-    print(f"Upcoming events: {stats['upcoming_events']}")
-    
-    print(f"\nEvents by source:")
-    for source, count in stats['source_breakdown'].items():
-        print(f"  - {source}: {count} events")
-
-    return {
-        'success': True,
-        'stored_events': total_stored,
-        'updated_events': total_updated,
-        'total_events': stats['total_events'],
-        'upcoming_events': stats['upcoming_events'],
-        'source_breakdown': stats['source_breakdown']
-    }
+        logger.warning("No events found from any source")
+        return {'success': False, 'error': 'No events found'}
 
 
 def main():
-    """Main entry point."""
+    """Main entry point for enhanced scraping."""
     try:
         result = run_enhanced_scraping()
 
         if result['success']:
-            print(f"\n🎉 SUCCESS: Enhanced scraping completed!")
-            print(f"📊 Stored: {result['stored_events']} new events")
-            print(f"🔄 Updated: {result['updated_events']} existing events")
-            print(f"📈 Total: {result['total_events']} events in database")
-            return 0
+            print(f"SUCCESS: Enhanced scraping completed")
+            print(f"- Stored: {result['stored_events']} new events")
+            print(f"- Updated: {result['updated_events']} existing events")
+            print(f"- Total database events: {result['total_events']}")
+
+            # Show breakdown by source
+            print("\nEvents by source:")
+            for source, count in result['source_breakdown'].items():
+                print(f"  - {source}: {count} events")
+
         else:
-            print(f"❌ FAILED: {result.get('error', 'Unknown error')}")
-            return 1
+            print(f"FAILED: {result.get('error', 'Unknown error')}")
+            sys.exit(1)
 
     except Exception as e:
-        print(f"💥 FATAL ERROR: {e}")
-        return 1
+        logger.error(f"FATAL ERROR in enhanced scraper: {e}")
+        print(f"FATAL ERROR: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

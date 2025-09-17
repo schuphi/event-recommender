@@ -85,6 +85,14 @@ class CopenhagenVenueScraper:
             'lat': 55.6667,
             'lon': 12.5419,
             'scraper_method': 'scrape_vega'
+        },
+        'culture_box': {
+            'name': 'Culture Box',
+            'url': 'https://culture-box.com',
+            'address': 'Kronprinsessegade 54, 1306 København K',
+            'lat': 55.6826,
+            'lon': 12.5941,
+            'scraper_method': 'scrape_culture_box'
         }
     }
 
@@ -162,6 +170,9 @@ class CopenhagenVenueScraper:
                         if container and container not in event_containers:
                             event_containers.append(container)
 
+            # Track seen events to avoid duplicates
+            seen_events = set()
+
             for container in event_containers:
                 try:
                     event = self._extract_rust_event(container, venue_info)
@@ -169,7 +180,13 @@ class CopenhagenVenueScraper:
                         # Only include future events within the specified range
                         if (event.date_time > datetime.now() and
                             event.date_time < datetime.now() + timedelta(days=days_ahead)):
-                            events.append(event)
+
+                            # Create a unique key for duplicate detection
+                            event_key = (event.title.lower().strip(), event.date_time.date())
+
+                            if event_key not in seen_events:
+                                events.append(event)
+                                seen_events.add(event_key)
 
                 except Exception as e:
                     logger.warning(f"Failed to parse Rust event: {e}")
@@ -277,8 +294,54 @@ class CopenhagenVenueScraper:
         events = []
 
         try:
-            self.rate_limit()
-            response = self.session.get(venue_info['url'])
+            # Loppen seems to have stricter bot detection, use more human-like headers
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'da,en-US;q=0.7,en;q=0.3',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1'
+            }
+
+            # Implement retry logic with exponential backoff
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    self.rate_limit(5.0 + attempt * 2.0)  # Longer delays for Loppen
+
+                    # Try different approaches
+                    if attempt == 0:
+                        # Try with session
+                        response = self.session.get(venue_info['url'], headers=headers, timeout=15)
+                    elif attempt == 1:
+                        # Try with fresh requests
+                        response = requests.get(venue_info['url'], headers=headers, timeout=15)
+                    else:
+                        # Try without HTTPS
+                        alt_url = venue_info['url'].replace('https://', 'http://')
+                        response = requests.get(alt_url, headers=headers, timeout=15)
+
+                    if response.status_code == 200:
+                        break
+                    elif response.status_code == 455:
+                        logger.warning(f"Loppen returned 455 (attempt {attempt + 1}/{max_retries}), waiting longer...")
+                        time.sleep(10 * (attempt + 1))  # Progressive backoff
+                        continue
+                    else:
+                        response.raise_for_status()
+
+                except requests.exceptions.RequestException as e:
+                    if attempt == max_retries - 1:
+                        raise e
+                    logger.warning(f"Loppen request failed (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(5 * (attempt + 1))
+
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -464,6 +527,100 @@ class CopenhagenVenueScraper:
 
         return events
 
+    def scrape_culture_box(self, venue_info: Dict, days_ahead: int) -> List[VenueEvent]:
+        """Scrape events from Culture Box."""
+        events = []
+
+        try:
+            self.rate_limit()
+            response = self.session.get(venue_info['url'])
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.content, 'html.parser')
+            page_text = soup.get_text()
+
+            # Culture Box shows events with dates and artists
+            # Look for date patterns followed by event info
+            date_pattern = r'(\d{1,2})\.(\d{1,2})\.(\d{4})|(\d{1,2})\s+(september|october|november|december|januar|februar|marts|april|maj|juni|juli|august)'
+            date_matches = list(re.finditer(date_pattern, page_text, re.IGNORECASE))
+
+            # Also look for event containers with structured data
+            event_containers = soup.find_all(['div', 'article', 'section'], class_=re.compile(r'event|show|party', re.I))
+
+            # Process container-based events first
+            for container in event_containers:
+                try:
+                    container_text = container.get_text()
+
+                    # Look for date in container
+                    date_match = re.search(date_pattern, container_text, re.IGNORECASE)
+                    if not date_match:
+                        continue
+
+                    date_text = date_match.group(0)
+                    date_time = self._parse_danish_date(date_text)
+
+                    if not date_time or date_time <= datetime.now() or date_time > datetime.now() + timedelta(days=days_ahead):
+                        continue
+
+                    # Extract artist names (look for text before venue info)
+                    lines = [line.strip() for line in container_text.split('\n') if line.strip()]
+                    artists = []
+
+                    # Culture Box typically lists multiple artists
+                    for line in lines:
+                        if (len(line) > 2 and len(line) < 80 and
+                            not any(word in line.lower() for word in ['culture', 'box', 'black', 'red', 'dkk', 'entrance', 'facebook', 'soundcloud', '10pm', '8am']) and
+                            not re.match(r'^\d', line)):  # Don't include lines starting with numbers
+
+                            # Check if this looks like an artist name
+                            if any(c.isupper() for c in line) and len(line.split()) <= 4:
+                                artists.append(line)
+
+                    if artists:
+                        # Use first artist as main title, or combine multiple
+                        title = artists[0] if len(artists) == 1 else f"{artists[0]} & more"
+
+                        # Determine venue space (Black Box vs Red Box)
+                        venue_name = venue_info['name']
+                        if 'black box' in container_text.lower():
+                            venue_name = 'Culture Box - Black Box'
+                        elif 'red box' in container_text.lower():
+                            venue_name = 'Culture Box - Red Box'
+
+                        # Extract price
+                        price_match = re.search(r'(\d+)\s*dkk', container_text, re.IGNORECASE)
+                        price_min = float(price_match.group(1)) if price_match else None
+
+                        description = f"{', '.join(artists[:3])} at {venue_name}"
+                        if len(artists) > 3:
+                            description += f" and {len(artists) - 3} more artists"
+
+                        event = VenueEvent(
+                            title=title,
+                            description=description,
+                            date_time=date_time,
+                            end_date_time=date_time.replace(hour=8) + timedelta(days=1),  # Next day 8 AM
+                            venue_name=venue_name,
+                            venue_address=venue_info['address'],
+                            venue_lat=venue_info['lat'],
+                            venue_lon=venue_info['lon'],
+                            price_min=price_min,
+                            price_max=price_min,
+                            source='culture_box_website',
+                            artist=', '.join(artists[:3])
+                        )
+                        events.append(event)
+
+                except Exception as e:
+                    logger.warning(f"Failed to parse Culture Box event: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Failed to fetch Culture Box events: {e}")
+
+        return events
+
     def _extract_rust_event(self, container, venue_info: Dict) -> Optional[VenueEvent]:
         """Extract event data from Rust HTML container."""
         try:
@@ -507,6 +664,30 @@ class CopenhagenVenueScraper:
 
             # Filter out very short or very long titles
             if len(title.strip()) < 3 or len(title.strip()) > 100:
+                return None
+
+            # Additional metadata filtering
+            title_clean = title.strip()
+
+            # Filter out repeated special characters or patterns that suggest metadata
+            if re.match(r'^[^a-zA-Z]*$', title_clean):  # Only non-letters
+                return None
+
+            # Filter out lines that are clearly venue information
+            venue_info_patterns = [
+                r'venue\s+info',
+                r'contact\s+info',
+                r'opening\s+hours',
+                r'age\s+limit.*\d+',
+                r'dress\s+code',
+                r'entry.*fee',
+                r'door.*policy',
+                r'sound.*system',
+                r'capacity.*\d+',
+                r'location.*info'
+            ]
+
+            if any(re.search(pattern, title_clean, re.IGNORECASE) for pattern in venue_info_patterns):
                 return None
 
             # Extract date
