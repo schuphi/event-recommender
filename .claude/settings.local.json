@@ -48,7 +48,21 @@
       "Bash(DATABASE_URL=data/events.duckdb python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000)",
       "Bash(DATABASE_URL=data/events.duckdb python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload)",
       "Read(//c/Users/PhilippSchumacher/OneDrive - Flat Pay ApS/Pictures/Screenshots/**)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "WebFetch(domain:vega.dk)",
+      "WebFetch(domain:rust.dk)",
+      "WebFetch(domain:culturebox.dk)",
+      "WebFetch(domain:www.rust.dk)",
+      "WebFetch(domain:www.culturebox.dk)",
+      "WebFetch(domain:pumpehuset.dk)",
+      "WebFetch(domain:www.cultureboxcph.dk)",
+      "WebFetch(domain:jazzhouse.dk)",
+      "WebFetch(domain:www.alicecph.com)",
+      "WebFetch(domain:www.amager-bio.dk)",
+      "WebFetch(domain:amagerbio.dk)",
+      "WebFetch(domain:www.loppen.dk)",
+      "WebFetch(domain:ab-b.dk)",
+      "Bash(set DATABASE_URL=data/events.duckdb)"
     ],
     "deny": [],
     "ask": []

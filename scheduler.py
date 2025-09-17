@@ -43,11 +43,10 @@ class EventScraperScheduler:
         logger.info("=== Starting scheduled scraping ===")
 
         try:
-            # For now, use the simple test scraper since Eventbrite API has limitations
-            # In production, this would use the full scraper_runner.py
+            # Use the enhanced scraper that combines venue scraping with Eventbrite API
             result = subprocess.run([
                 sys.executable,
-                str(self.project_root / "simple_scraper_test.py")
+                str(self.project_root / "enhanced_scraper_runner.py")
             ], capture_output=True, text=True, cwd=self.project_root)
 
             if result.returncode == 0:
