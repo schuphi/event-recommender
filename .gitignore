@@ -81,8 +81,7 @@ htmlcov/
 node_modules/
 npm-debug.log*
 
-# Claude AI Assistant
-.claude/
+# Removed: .claude/ folder deleted
 
 # Temporary command artifacts
 *Select-String*
