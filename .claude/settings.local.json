@@ -63,7 +63,8 @@
       "WebFetch(domain:www.loppen.dk)",
       "WebFetch(domain:ab-b.dk)",
       "Bash(set DATABASE_URL=data/events.duckdb)",
-      "WebFetch(domain:culture-box.com)"
+      "WebFetch(domain:culture-box.com)",
+      "Bash(where docker)"
     ],
     "deny": [],
     "ask": []

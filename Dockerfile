@@ -1,37 +1,88 @@
-# Simplified Railway Dockerfile
-FROM python:3.11-slim
+# Multi-stage build for production deployment
+
+# Build stage
+FROM python:3.11-slim as builder
+
+# Set build arguments
+ARG BUILD_ENV=production
+ARG REQUIREMENTS_FILE=requirements.txt
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create application user
+RUN useradd --create-home --shell /bin/bash app
+
+# Set work directory
+WORKDIR /app
+
+# Copy requirements files
+COPY requirements-railway.txt requirements.txt requirements-dev.txt ./
+
+# Install Python dependencies (use lightweight requirements for Railway)
+RUN pip install --upgrade pip && \
+    pip install -r requirements-railway.txt && \
+    if [ "$BUILD_ENV" = "development" ]; then pip install -r requirements-dev.txt; fi
+
+# Production stage
+FROM python:3.11-slim as production
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH="/app:/app/backend:/app/ml:/app/data-collection" \
-    PORT=8000
+    PORT=8000 \
+    HOST=0.0.0.0
 
-# Install system dependencies
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create application user
+RUN useradd --create-home --shell /bin/bash --uid 1000 app
+
+# Create application directories
+RUN mkdir -p /app /app/data /app/logs /app/models && \
+    chown -R app:app /app
+
 # Set work directory
 WORKDIR /app
 
-# Copy and install requirements
-COPY requirements-railway.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-railway.txt
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Copy application code
-COPY . .
+COPY --chown=app:app . .
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/logs /app/cache
+# Create data and model directories with proper permissions
+# Note: events.duckdb is a file, not a directory
+RUN mkdir -p /app/data && \
+    mkdir -p /app/models && \
+    mkdir -p /app/logs && \
+    mkdir -p /app/cache && \
+    chown -R app:app /app
+
+# Switch to application user
+USER app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:$PORT/health || exit 1
 
 # Expose port
 EXPOSE $PORT
 
-# Health check - Railway typically uses port 8000 internally
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run the application - use the root main.py entry point
+# Default command - use main.py entry point for Railway compatibility
 CMD ["python", "main.py"]
