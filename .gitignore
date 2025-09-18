@@ -83,6 +83,10 @@ npm-debug.log*
 
 # Claude AI Assistant
 .claude/
+
+# Temporary command artifacts
+*Select-String*
+*--date*
 yarn-debug.log*
 yarn-error.log*
 
