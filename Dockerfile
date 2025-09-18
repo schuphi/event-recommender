@@ -33,5 +33,5 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application - use the main.py script which handles PORT env var
-CMD ["python", "backend/app/main.py"]
+# Run the application - use the root main.py entry point
+CMD ["python", "main.py"]
