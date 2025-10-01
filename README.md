@@ -96,8 +96,6 @@ event-recommender/
 
 ## Machine Learning Pipeline
 
-ML components:
-
 - **Content-Based**: Uses sentence-transformers for event similarity
 - **Feature Engineering**: H3 geo-indexing, text embeddings
 - **Vector Search**: FAISS for semantic similarity
@@ -130,9 +128,6 @@ python scripts/testing/run_tests.py database
 docker compose -f config/docker/docker-compose.yml up -d
 ```
 
-### Railway.app
-The project includes Railway configuration files for easy deployment.
-
 ### Manual
 ```bash
 # Start backend
@@ -141,14 +136,3 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 # Start frontend
 cd frontend && npm run build && npm start
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch  
-3. Run tests: `python run_tests.py all`
-4. Submit pull request
-
-## License
-
-MIT License
