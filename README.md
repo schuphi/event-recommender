@@ -56,24 +56,13 @@ npm run dev
 
 ## Features
 
-### Current (MVP)
-- Real Copenhagen venue events (Vega, Culture Box, Loppen)
+### Current
+- Real Copenhagen venue events
 - Event search and filtering
 - Basic recommendations
 - Web scraping pipeline for venue websites
 - RESTful API with CORS support
 
-## API Endpoints
-
-```bash
-GET  /health              # System health check
-GET  /events              # List events with filters
-GET  /events/{id}         # Get specific event
-GET  /recommend/{user_id} # Get personalized recommendations
-GET  /search?query=...    # Search events by text
-GET  /stats               # Database statistics
-GET  /                    # API information
-```
 
 ## Project Structure
 
@@ -107,33 +96,17 @@ event-recommender/
 
 ## Machine Learning Pipeline
 
-The system includes several ML components:
+ML components:
 
 - **Content-Based**: Uses sentence-transformers for event similarity
-- **Collaborative Filtering**: Planned BPR implementation
 - **Feature Engineering**: H3 geo-indexing, text embeddings
 - **Vector Search**: FAISS for semantic similarity
 
-## API Usage
-
-```javascript
-// Get events
-const events = await fetch('http://localhost:8000/events?limit=10')
-  .then(r => r.json());
-
-// Search events
-const results = await fetch('http://localhost:8000/search?query=techno')
-  .then(r => r.json());
-
-// Get recommendations
-const recs = await fetch('http://localhost:8000/recommend/user123')
-  .then(r => r.json());
-```
 
 ## Data Collection
 
 The system scrapes real event data from:
-- Copenhagen venue websites (Vega, Culture Box, Loppen)
+- Copenhagen venue websites
 - Eventbrite API integration
 - RSS/JSON feeds from venues
 
@@ -168,31 +141,6 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 # Start frontend
 cd frontend && npm run build && npm start
 ```
-
-## Configuration
-
-Environment variables:
-```bash
-# Database
-DATABASE_URL=data/events/events.duckdb
-
-# API
-API_HOST=0.0.0.0
-API_PORT=8000
-CORS_ORIGINS=http://localhost:3000
-
-# Optional integrations
-EVENTBRITE_API_TOKEN=your_token
-SPOTIFY_CLIENT_ID=your_id
-SPOTIFY_CLIENT_SECRET=your_secret
-```
-
-## Sample Data
-
-The database includes real Copenhagen events from venues like:
-- Vega, Culture Box, Loppen
-- Electronic, indie, and alternative music events
-- Price range: 200-700 DKK
 
 ## Contributing
 
