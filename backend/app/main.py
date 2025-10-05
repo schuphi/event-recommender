@@ -96,6 +96,14 @@ class HealthResponse(BaseModel):
 def get_db_connection():
     """Get database connection."""
     try:
+        # Check if this is a PostgreSQL URL (for Supabase)
+        if DATABASE_URL.startswith(('postgresql://', 'postgres://')):
+            logger.info("Using PostgreSQL database (Supabase)")
+            # For PostgreSQL, we don't create the database here
+            # The auth service handles PostgreSQL connections
+            return None  # Return None, auth service will handle connections
+        
+        # DuckDB logic (for local development)
         if not Path(DATABASE_URL).exists():
             logger.warning(f"Database file not found at {DATABASE_URL}")
             logger.info("Creating new database with basic schema...")
@@ -183,6 +191,18 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     
+    # Check if using PostgreSQL (Supabase)
+    if DATABASE_URL.startswith(('postgresql://', 'postgres://')):
+        return HealthResponse(
+            status="healthy",
+            timestamp=datetime.now(),
+            version="1.0.0",
+            database_status="postgresql_connected",
+            events_count=0,  # Will be updated when we add PostgreSQL queries
+            upcoming_events=0
+        )
+    
+    # DuckDB logic
     conn = get_db_connection()
     if conn is None:
         return HealthResponse(
