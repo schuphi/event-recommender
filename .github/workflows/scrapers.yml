@@ -27,7 +27,6 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
-        pip install -r data-collection/scrapers/social_scrapers/requirements.txt
 
     - name: Initialize database with existing complex schema
       run: |
@@ -145,13 +144,8 @@ jobs:
       env:
         DATABASE_URL: ./data/events/events.duckdb
         PYTHONPATH: ${{ github.workspace }}
-        # Add social media API keys as secrets
-        INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
-        INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
       run: |
-        echo "Running social media scrapers..."
-        cd data-collection/scrapers/social_scrapers
-        python run_all_scrapers.py
+        echo "Social media scrapers not yet implemented - placeholder for future enhancement"
       continue-on-error: true
 
     - name: Validate database
