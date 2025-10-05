@@ -17,6 +17,7 @@ psycopg2-binary>=2.9.0
 # Data Processing (lightweight)
 pandas>=2.0.0
 numpy>=1.24.0,<2.0.0
+h3>=3.7.0
 
 # Data Collection
 requests>=2.31.0
