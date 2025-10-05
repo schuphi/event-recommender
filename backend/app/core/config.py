@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # Database Configuration
     DATABASE_URL: str = Field(default="../../data/events/events.duckdb", env="DATABASE_URL")
     DB_POOL_SIZE: int = Field(default=10, env="DB_POOL_SIZE")
+    
+    # Authentication Configuration
+    JWT_SECRET_KEY: str = Field(default="dev-secret-key-change-in-production", env="JWT_SECRET_KEY")
+    JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
+    JWT_EXPIRATION_HOURS: int = Field(default=24, env="JWT_EXPIRATION_HOURS")
 
     # ML Model Configuration
     SENTENCE_TRANSFORMER_MODEL: str = Field(

@@ -17,6 +17,9 @@ import logging
 import os
 from pydantic import BaseModel
 
+# Import routers
+from backend.app.routers import auth
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,6 +36,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Include routers
+app.include_router(auth.router)
 
 # Add CORS middleware
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003").split(",")

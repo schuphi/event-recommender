@@ -3,7 +3,7 @@
 Pydantic request models for the Copenhagen Event Recommender API.
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, EmailStr
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -201,3 +201,19 @@ class ModelFeedbackRequest(BaseModel):
     diversity_satisfaction: float = Field(..., ge=0, le=1)
     relevance_score: float = Field(..., ge=0, le=1)
     comments: Optional[str] = Field(None, max_length=1000)
+
+
+# Authentication Models
+class UserRegisterRequest(BaseModel):
+    """Request to register a new user."""
+    
+    email: EmailStr
+    password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
+    name: str = Field(..., min_length=1, max_length=100, description="User's display name")
+
+
+class UserLoginRequest(BaseModel):
+    """Request to login a user."""
+    
+    email: EmailStr
+    password: str

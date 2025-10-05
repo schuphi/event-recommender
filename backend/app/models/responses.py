@@ -72,13 +72,22 @@ class UserResponse(BaseModel):
     """Response model for user data."""
 
     user_id: str
-    name: Optional[str] = None
+    email: str
+    name: str
     preferences: Optional[Dict[str, Any]] = None
     location_lat: Optional[float] = None
     location_lon: Optional[float] = None
     created_at: datetime
     last_active: Optional[datetime] = None
     interaction_count: int = Field(default=0)
+
+
+class AuthResponse(BaseModel):
+    """Response model for authentication."""
+    
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 
 class InteractionResponse(BaseModel):
