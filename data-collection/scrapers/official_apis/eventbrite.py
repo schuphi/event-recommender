@@ -238,6 +238,51 @@ class EventbriteScraper:
         except (KeyError, ValueError, TypeError):
             return None, None
 
+    def to_normalized_events(self, events: List[EventbriteEvent]) -> List[Dict]:
+        """
+        Convert EventbriteEvents to normalized format for the pipeline.
+
+        Returns list of dicts compatible with ingest_events().
+        """
+        normalized = []
+
+        for event in events:
+            normalized.append({
+                "title": event.title,
+                "description": event.description,
+                "date_time": event.start_time,
+                "end_date_time": event.end_time,
+                "venue_name": event.venue_name,
+                "venue_address": event.venue_address,
+                "venue_lat": event.venue_lat,
+                "venue_lon": event.venue_lon,
+                "source_id": event.id,
+                "source_url": event.url,
+                "price_min": event.price_min,
+                "price_max": event.price_max,
+                "currency": "DKK",
+                "image_url": event.image_url,
+            })
+
+        return normalized
+
+
+def fetch_eventbrite_events(api_key: Optional[str] = None, max_results: int = 100) -> List[Dict]:
+    """
+    Convenience function to fetch Eventbrite events.
+
+    Returns normalized event dictionaries ready for pipeline.
+    """
+    api_key = api_key or os.getenv("EVENTBRITE_API_TOKEN")
+
+    if not api_key:
+        logger.warning("No Eventbrite API key. Set EVENTBRITE_API_TOKEN environment variable.")
+        return []
+
+    scraper = EventbriteScraper(api_key)
+    events = scraper.search_events(max_results=max_results)
+    return scraper.to_normalized_events(events)
+
 
 def main():
     """Example usage of EventbriteScraper."""

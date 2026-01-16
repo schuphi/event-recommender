@@ -1,5 +1,6 @@
 import { Heart, MapPin, Calendar, DollarSign, Users, BookmarkPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface Event {
   id: string;
@@ -9,6 +10,9 @@ interface Event {
   price_min: number;
   price_max: number;
   currency: string;
+  topic: string;
+  tags: string[];
+  is_free: boolean;
   venue_name: string;
   venue_address: string;
   venue_neighborhood: string;
@@ -17,6 +21,30 @@ interface Event {
   source: string;
   source_url?: string;
 }
+
+// Topic styling configuration
+const topicConfig: Record<string, { label: string; className: string; icon: string }> = {
+  tech: {
+    label: 'Tech',
+    className: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    icon: '💻'
+  },
+  nightlife: {
+    label: 'Nightlife',
+    className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    icon: '🌙'
+  },
+  music: {
+    label: 'Music',
+    className: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+    icon: '🎵'
+  },
+  sports: {
+    label: 'Sports',
+    className: 'bg-green-500/20 text-green-400 border-green-500/30',
+    icon: '⚽'
+  }
+};
 
 interface EventCardProps {
   event: Event;
@@ -265,11 +293,31 @@ export function EventCard({ event, onLike, onDislike, onSave, onGoing }: EventCa
 
   const neighborhoodClass = neighborhoodClasses[event.venue_neighborhood as keyof typeof neighborhoodClasses] || '';
 
+  const topic = topicConfig[event.topic] || topicConfig.music;
+
   return (
     <div className="glass-card hover-lift group animate-fade-in">
       {/* Event visual header with venue info */}
       <div className="relative h-32 mb-4 rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500/80 via-purple-500/80 to-pink-500/80">
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* Topic badge - top right */}
+        <div className="absolute top-3 right-3">
+          <Badge variant="outline" className={`${topic.className} border backdrop-blur-sm`}>
+            <span className="mr-1">{topic.icon}</span>
+            {topic.label}
+          </Badge>
+        </div>
+
+        {/* Free badge - top left */}
+        {event.is_free && (
+          <div className="absolute top-3 left-3">
+            <Badge className="bg-green-500/90 text-white border-0">
+              Free
+            </Badge>
+          </div>
+        )}
+
         <div className="absolute bottom-3 left-3 right-3">
           <div className="flex items-center gap-2 mb-1">
             <MapPin className="h-4 w-4 text-white/80" />
@@ -280,11 +328,19 @@ export function EventCard({ event, onLike, onDislike, onSave, onGoing }: EventCa
               {event.venue_name}
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {(event.tags || []).slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 text-xs font-medium bg-white/20 backdrop-blur-sm rounded-md text-white"
+              >
+                {tag}
+              </span>
+            ))}
             {(event.genres || []).slice(0, 2).map((genre) => (
               <span
                 key={genre}
-                className="px-2 py-1 text-xs font-medium bg-white/20 backdrop-blur-sm rounded-md text-white"
+                className="px-2 py-0.5 text-xs font-medium bg-white/20 backdrop-blur-sm rounded-md text-white"
               >
                 {genre}
               </span>

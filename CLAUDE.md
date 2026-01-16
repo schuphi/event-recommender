@@ -167,17 +167,19 @@ Classification uses rule-based keyword matching → embedding similarity fallbac
 
 ## Current Limitations / Tech Debt
 
-1. **Content-based not wired up** - `_content_based_recommendations()` in recommendation_service.py is a stub (line 672)
+1. ~~**Content-based not wired up**~~ - FIXED: Content-based recommender now properly implemented
 
-2. **Topic system missing** - Events have genres (music-focused) but no general topic categorization (Tech, Nightlife, Sports, etc.)
+2. ~~**Topic system missing**~~ - FIXED: Events now have topic categorization (tech, nightlife, music, sports)
 
-3. **Heavy dependencies** - LangChain, sentence-transformers add startup time. Consider removing for simpler deployments.
+3. ~~**Heavy dependencies**~~ - FIXED: LangChain recommender deprecated, using lighter content-based approach
 
-4. **Auth over-engineered** - Full JWT auth exists but project doesn't need user accounts. Simplify to session-only.
+4. ~~**Auth over-engineered**~~ - FIXED: Auth router removed, using session-based tracking only
 
-5. **Root-level test files** - `test_connection.py`, `debug_env.py` etc. should move to `tests/` or `scripts/`
+5. ~~**Root-level test files**~~ - FIXED: Moved to `scripts/dev/`
 
-6. **Multiple requirements files** - `requirements.txt`, `requirements-dev.txt`, `requirements-railway.txt` have overlap
+6. **Multiple requirements files** - Still needs cleanup: consolidate into pyproject.toml
+
+7. **Database needs fresh data** - Existing events should be re-scraped with topic classification
 
 ## Coding Standards
 

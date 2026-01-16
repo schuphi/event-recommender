@@ -14,6 +14,9 @@ interface Event {
   price_min: number;
   price_max: number;
   currency: string;
+  topic: string;
+  tags: string[];
+  is_free: boolean;
   venue_name: string;
   venue_address: string;
   venue_neighborhood: string;
@@ -30,6 +33,15 @@ interface FilterState {
   dateFilter: string;
 }
 
+// Topic configuration for filter chips
+const TOPICS = [
+  { id: 'all', label: 'All', icon: '✨' },
+  { id: 'tech', label: 'Tech', icon: '💻' },
+  { id: 'nightlife', label: 'Nightlife', icon: '🌙' },
+  { id: 'music', label: 'Music', icon: '🎵' },
+  { id: 'sports', label: 'Sports', icon: '⚽' },
+] as const;
+
 const API_BASE_URL = 'http://localhost:8000';
 
 export function EventFeed() {
@@ -40,6 +52,8 @@ export function EventFeed() {
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [showFreeOnly, setShowFreeOnly] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     genres: [],
     neighborhoods: [],
@@ -61,7 +75,17 @@ export function EventFeed() {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/events?upcoming_only=true&limit=50`);
+
+        // Build URL with topic filter
+        let url = `${API_BASE_URL}/events?upcoming_only=true&limit=50`;
+        if (selectedTopic !== 'all') {
+          url += `&topic=${selectedTopic}`;
+        }
+        if (showFreeOnly) {
+          url += `&is_free=true`;
+        }
+
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Failed to fetch events');
         }
@@ -71,6 +95,9 @@ export function EventFeed() {
         const safeEvents = eventsData.map(event => ({
           ...event,
           genres: event.genres || [],
+          tags: event.tags || [],
+          topic: event.topic || 'music',
+          is_free: event.is_free || false,
           title: event.title || 'Untitled Event',
           description: event.description || '',
           venue_name: event.venue_name || 'Unknown Venue',
@@ -119,7 +146,7 @@ export function EventFeed() {
     };
 
     fetchEvents();
-  }, [toast]);
+  }, [toast, selectedTopic, showFreeOnly]);
 
   // Load more events function
   const loadMoreEvents = async () => {
@@ -130,7 +157,16 @@ export function EventFeed() {
       const nextPage = currentPage + 1;
       const offset = nextPage * 20;
 
-      const response = await fetch(`${API_BASE_URL}/events?upcoming_only=true&limit=20&offset=${offset}`);
+      // Build URL with topic filter
+      let url = `${API_BASE_URL}/events?upcoming_only=true&limit=20&offset=${offset}`;
+      if (selectedTopic !== 'all') {
+        url += `&topic=${selectedTopic}`;
+      }
+      if (showFreeOnly) {
+        url += `&is_free=true`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch more events');
       }
@@ -146,6 +182,9 @@ export function EventFeed() {
       const safeEvents = eventsData.map(event => ({
         ...event,
         genres: event.genres || [],
+        tags: event.tags || [],
+        topic: event.topic || 'music',
+        is_free: event.is_free || false,
         title: event.title || 'Untitled Event',
         description: event.description || '',
         venue_name: event.venue_name || 'Unknown Venue',
@@ -350,9 +389,54 @@ export function EventFeed() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-heading font-bold mb-2 bg-gradient-to-r from-primary via-accent to-neon-purple bg-clip-text text-transparent">
-            Copenhagen Nights
+            Copenhagen Events
           </h1>
           <p className="text-muted-foreground">Discover your next unforgettable experience</p>
+        </div>
+
+        {/* Topic Filter Chips */}
+        <div className="flex flex-wrap gap-2 mb-6 justify-center">
+          {TOPICS.map((topic) => (
+            <button
+              key={topic.id}
+              onClick={() => {
+                setSelectedTopic(topic.id);
+                setCurrentPage(0);
+                setHasMore(true);
+              }}
+              className={`
+                px-4 py-2 rounded-full text-sm font-medium transition-all
+                flex items-center gap-2
+                ${selectedTopic === topic.id
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                  : 'bg-secondary/50 text-secondary-foreground hover:bg-secondary'
+                }
+              `}
+            >
+              <span>{topic.icon}</span>
+              {topic.label}
+            </button>
+          ))}
+
+          {/* Free events toggle */}
+          <button
+            onClick={() => {
+              setShowFreeOnly(!showFreeOnly);
+              setCurrentPage(0);
+              setHasMore(true);
+            }}
+            className={`
+              px-4 py-2 rounded-full text-sm font-medium transition-all
+              flex items-center gap-2
+              ${showFreeOnly
+                ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
+                : 'bg-secondary/50 text-secondary-foreground hover:bg-secondary'
+              }
+            `}
+          >
+            <span>🎁</span>
+            Free
+          </button>
         </div>
 
         {/* Search and Filters */}
@@ -387,6 +471,8 @@ export function EventFeed() {
               variant="outline"
               onClick={() => {
                 setSearchQuery('');
+                setSelectedTopic('all');
+                setShowFreeOnly(false);
                 setFilters({
                   genres: [],
                   neighborhoods: [],

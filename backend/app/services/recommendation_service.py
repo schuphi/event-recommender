@@ -181,16 +181,14 @@ class RecommendationService:
             self._hybrid_model = None
 
     def _load_langchain_recommender(self):
-        """Load LangChain recommender for semantic search."""
-        try:
-            from backend.app.services.langchain_recommender import recommender
+        """Load LangChain recommender for semantic search.
 
-            self._langchain_recommender = recommender
-            logger.info("LangChain recommender loaded")
-
-        except Exception as e:
-            logger.warning(f"Failed to load LangChain recommender: {e}")
-            self._langchain_recommender = None
+        NOTE: Deprecated - using content-based recommender instead.
+        LangChain adds heavy dependencies and API costs.
+        """
+        # Skip loading - use content-based recommendations instead
+        self._langchain_recommender = None
+        logger.info("LangChain recommender disabled (deprecated)")
 
     def _load_custom_collaborative_filter(self):
         """Load custom collaborative filter."""
