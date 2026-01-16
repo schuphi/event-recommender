@@ -668,16 +668,204 @@ class RecommendationService:
                 candidate_events, num_recommendations
             )
 
-    # Placeholder methods for content-based and hybrid recommendations
-    async def _content_based_recommendations(self, *args) -> List[RecommendedEvent]:
-        """Placeholder for content-based recommendations."""
-        logger.warning("Content-based recommendations not fully implemented")
-        return await self._popularity_based_recommendations(args[0], args[-1])
+    async def _content_based_recommendations(
+        self,
+        candidate_events: List[EventResponse],
+        user_preferences: Optional[Dict[str, Any]],
+        location_lat: Optional[float],
+        location_lon: Optional[float],
+        num_recommendations: int,
+    ) -> List[RecommendedEvent]:
+        """
+        Generate content-based recommendations using semantic similarity.
 
-    async def _hybrid_recommendations(self, *args) -> List[RecommendedEvent]:
-        """Placeholder for hybrid recommendations."""
-        logger.warning("Hybrid recommendations not fully implemented")
-        return await self._popularity_based_recommendations(args[0], args[-1])
+        Uses the ContentBasedRecommender to find events similar to user preferences.
+        """
+        logger.info("Using content-based recommendations")
+
+        try:
+            from ml.models.content_based import ContentBasedRecommender, UserPreferences
+
+            loop = asyncio.get_event_loop()
+
+            # Convert EventResponse objects to dicts for the model
+            events_as_dicts = []
+            event_id_map = {}
+
+            for event in candidate_events:
+                event_dict = {
+                    "id": event.event_id,
+                    "title": event.title,
+                    "description": event.description or "",
+                    "genres": event.genres or [],
+                    "artists": event.artists or [],
+                    "venue_name": event.venue_name or "",
+                    "venue_lat": event.venue_lat,
+                    "venue_lon": event.venue_lon,
+                    "price_min": event.price_min,
+                    "price_max": event.price_max,
+                    "popularity_score": event.popularity_score or 0.0,
+                    "date_time": event.date_time,
+                    "topic": getattr(event, "topic", "music"),
+                }
+                events_as_dicts.append(event_dict)
+                event_id_map[event.event_id] = event
+
+            # Initialize and fit the content model if not already done
+            if self._content_model is None:
+                self._load_content_model()
+
+            if self._content_model is None:
+                logger.warning("Content model not available, falling back to popularity")
+                return await self._popularity_based_recommendations(
+                    candidate_events, num_recommendations
+                )
+
+            # Fit the model on candidate events
+            await loop.run_in_executor(
+                None, lambda: self._content_model.fit(events_as_dicts)
+            )
+
+            # Build UserPreferences from user_preferences dict
+            prefs = user_preferences or {}
+            user_prefs = UserPreferences(
+                preferred_genres=prefs.get("preferred_genres", []),
+                preferred_artists=prefs.get("preferred_artists", []),
+                preferred_venues=prefs.get("preferred_venues", []),
+                price_range=(
+                    prefs.get("price_min", 0),
+                    prefs.get("price_max", 1000),
+                ),
+                location_lat=location_lat,
+                location_lon=location_lon,
+                preferred_times=prefs.get("preferred_times", []),
+                preferred_days=prefs.get("preferred_days", []),
+            )
+
+            # Get recommendations from content model
+            scored_events = await loop.run_in_executor(
+                None,
+                lambda: self._content_model.recommend(
+                    user_prefs,
+                    candidate_event_ids=[e["id"] for e in events_as_dicts],
+                    num_recommendations=num_recommendations,
+                    diversity_factor=0.1,
+                ),
+            )
+
+            # Convert to RecommendedEvent format
+            recommendations = []
+            for rank, (event_id, score) in enumerate(scored_events):
+                if event_id in event_id_map:
+                    event = event_id_map[event_id]
+
+                    # Get explanation if available
+                    explanation_data = {}
+                    try:
+                        explanation_data = await loop.run_in_executor(
+                            None,
+                            lambda eid=event_id: self._content_model.explain_recommendation(
+                                eid, user_prefs
+                            ),
+                        )
+                    except Exception:
+                        pass
+
+                    # Build explanation reasons
+                    reasons = []
+                    if explanation_data.get("genre_match", {}).get("matched_genres"):
+                        matched = explanation_data["genre_match"]["matched_genres"]
+                        reasons.append(f"Matches genres: {', '.join(matched[:3])}")
+                    if explanation_data.get("location", {}).get("distance_km"):
+                        dist = explanation_data["location"]["distance_km"]
+                        reasons.append(f"{dist} km away")
+                    if not reasons:
+                        reasons.append("Similar to your preferences")
+
+                    recommended_event = RecommendedEvent(
+                        event=event,
+                        recommendation_score=float(score),
+                        rank=rank + 1,
+                        explanation=RecommendationExplanation(
+                            overall_score=float(score),
+                            components={
+                                "content_similarity": float(score),
+                                "popularity": event.popularity_score or 0.0,
+                            },
+                            reasons=reasons,
+                            model_confidence=0.75,
+                        ),
+                    )
+                    recommendations.append(recommended_event)
+
+            logger.info(f"Content-based recommender returned {len(recommendations)} events")
+            return recommendations
+
+        except Exception as e:
+            logger.warning(f"Content-based recommendations failed: {e}")
+            return await self._popularity_based_recommendations(
+                candidate_events, num_recommendations
+            )
+
+    async def _hybrid_recommendations(
+        self,
+        candidate_events: List[EventResponse],
+        user_id: str,
+        user_preferences: Optional[Dict[str, Any]],
+        location_lat: Optional[float],
+        location_lon: Optional[float],
+        diversity_factor: float,
+        num_recommendations: int,
+    ) -> List[RecommendedEvent]:
+        """
+        Generate hybrid recommendations combining content and collaborative signals.
+
+        For now, uses content-based as primary with popularity boost.
+        """
+        logger.info("Using hybrid recommendations")
+
+        try:
+            # Get content-based recommendations
+            content_recs = await self._content_based_recommendations(
+                candidate_events,
+                user_preferences,
+                location_lat,
+                location_lon,
+                num_recommendations * 2,  # Get more for re-ranking
+            )
+
+            if not content_recs:
+                return await self._popularity_based_recommendations(
+                    candidate_events, num_recommendations
+                )
+
+            # Re-rank with hybrid scoring
+            for rec in content_recs:
+                content_score = rec.recommendation_score
+                popularity_score = rec.event.popularity_score or 0.0
+
+                # Hybrid formula: 70% content, 30% popularity
+                hybrid_score = 0.7 * content_score + 0.3 * popularity_score
+
+                # Apply diversity penalty for same topics (if multiple from same topic)
+                rec.recommendation_score = hybrid_score
+                rec.explanation.components["hybrid_score"] = hybrid_score
+
+            # Sort by hybrid score and take top N
+            content_recs.sort(key=lambda x: x.recommendation_score, reverse=True)
+            recommendations = content_recs[:num_recommendations]
+
+            # Update ranks
+            for i, rec in enumerate(recommendations):
+                rec.rank = i + 1
+
+            return recommendations
+
+        except Exception as e:
+            logger.warning(f"Hybrid recommendations failed: {e}")
+            return await self._popularity_based_recommendations(
+                candidate_events, num_recommendations
+            )
 
     async def get_similar_events(
         self, event_id: str, num_recommendations: int = 10

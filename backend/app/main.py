@@ -76,6 +76,9 @@ class Event(BaseModel):
     price_min: Optional[float] = None
     price_max: Optional[float] = None
     currency: str = "DKK"
+    topic: str = "music"  # tech, nightlife, music, sports
+    tags: Optional[List[str]] = None
+    is_free: bool = False
     venue_name: Optional[str] = None
     venue_address: Optional[str] = None
     venue_neighborhood: Optional[str] = None
@@ -84,6 +87,16 @@ class Event(BaseModel):
     source_url: Optional[str] = None
     image_url: Optional[str] = None
     popularity_score: Optional[float] = None
+
+
+class TopicStats(BaseModel):
+    topic: str
+    event_count: int
+    upcoming_count: int
+
+
+# Valid topics for filtering
+VALID_TOPICS = {"tech", "nightlife", "music", "sports"}
 
 class HealthResponse(BaseModel):
     status: str
@@ -134,6 +147,9 @@ def get_db_connection():
                 price_min REAL,
                 price_max REAL,
                 currency TEXT DEFAULT 'DKK',
+                topic TEXT DEFAULT 'music',
+                tags TEXT DEFAULT '[]',
+                is_free BOOLEAN DEFAULT FALSE,
                 venue_id TEXT,
                 source TEXT,
                 source_url TEXT,
@@ -248,42 +264,99 @@ async def health_check():
             upcoming_events=0
         )
 
+@app.get("/events/topics", response_model=List[TopicStats])
+async def get_topic_stats():
+    """Get available topics with event counts."""
+
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    try:
+        query = """
+        SELECT
+            COALESCE(topic, 'music') as topic,
+            COUNT(*) as event_count,
+            COUNT(CASE WHEN date_time > ? THEN 1 END) as upcoming_count
+        FROM events
+        WHERE status = 'active'
+        GROUP BY topic
+        ORDER BY upcoming_count DESC
+        """
+
+        df = conn.execute(query, [datetime.now()]).df()
+        conn.close()
+
+        stats = []
+        for _, row in df.iterrows():
+            stats.append(TopicStats(
+                topic=str(row['topic']),
+                event_count=int(row['event_count']),
+                upcoming_count=int(row['upcoming_count'])
+            ))
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"Get topic stats failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/events", response_model=List[Event])
 async def get_events(
     limit: int = Query(default=20, le=100, description="Maximum number of events to return"),
     offset: int = Query(default=0, ge=0, description="Number of events to skip"),
     upcoming_only: bool = Query(default=True, description="Only return upcoming events"),
+    topic: Optional[str] = Query(default=None, description="Filter by topic: tech, nightlife, music, sports"),
+    is_free: Optional[bool] = Query(default=None, description="Filter for free events only"),
     min_price: Optional[float] = Query(default=None, description="Minimum price filter"),
     max_price: Optional[float] = Query(default=None, description="Maximum price filter")
 ):
-    """Get events from the database."""
+    """Get events from the database with optional topic filtering."""
     
     conn = get_db_connection()
     if conn is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
     
     try:
+        # Validate topic if provided
+        if topic is not None and topic not in VALID_TOPICS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid topic. Must be one of: {', '.join(VALID_TOPICS)}"
+            )
+
         # Build query conditions
-        where_conditions = ["status = 'active'"]
+        where_conditions = ["e.status = 'active'"]
         params = []
-        
+
         if upcoming_only:
-            where_conditions.append("date_time > ?")
+            where_conditions.append("e.date_time > ?")
             params.append(datetime.now())
-        
+
+        if topic is not None:
+            where_conditions.append("COALESCE(e.topic, 'music') = ?")
+            params.append(topic)
+
+        if is_free is not None:
+            if is_free:
+                where_conditions.append("(e.is_free = TRUE OR e.price_min IS NULL OR e.price_min = 0)")
+            else:
+                where_conditions.append("e.is_free = FALSE AND e.price_min > 0")
+
         if min_price is not None:
-            where_conditions.append("price_min >= ?")
+            where_conditions.append("e.price_min >= ?")
             params.append(min_price)
-            
+
         if max_price is not None:
-            where_conditions.append("price_max <= ?")
+            where_conditions.append("e.price_max <= ?")
             params.append(max_price)
-        
+
         where_clause = " AND ".join(where_conditions)
-        
+
         # Main query with venue join
         query = f"""
-        SELECT 
+        SELECT
             e.id,
             e.title,
             e.description,
@@ -292,6 +365,9 @@ async def get_events(
             e.price_min,
             e.price_max,
             e.currency,
+            COALESCE(e.topic, 'music') as topic,
+            COALESCE(e.tags, '[]') as tags,
+            COALESCE(e.is_free, FALSE) as is_free,
             e.source,
             e.source_url,
             e.image_url,
@@ -305,7 +381,7 @@ async def get_events(
         ORDER BY e.date_time ASC
         LIMIT ? OFFSET ?
         """
-        
+
         params.extend([limit, offset])
         
         df = conn.execute(query, params).df()
@@ -315,6 +391,17 @@ async def get_events(
         events = []
         for _, row in df.iterrows():
             try:
+                # Parse tags from JSON string
+                tags_raw = row.get('tags', '[]')
+                if pd.notna(tags_raw) and isinstance(tags_raw, str):
+                    import json
+                    try:
+                        tags = json.loads(tags_raw)
+                    except:
+                        tags = []
+                else:
+                    tags = []
+
                 event = Event(
                     id=str(row['id']),
                     title=str(row['title']),
@@ -324,6 +411,9 @@ async def get_events(
                     price_min=float(row['price_min']) if pd.notna(row['price_min']) else None,
                     price_max=float(row['price_max']) if pd.notna(row['price_max']) else None,
                     currency=str(row['currency']) if pd.notna(row['currency']) else "DKK",
+                    topic=str(row['topic']) if pd.notna(row.get('topic')) else "music",
+                    tags=tags,
+                    is_free=bool(row['is_free']) if pd.notna(row.get('is_free')) else False,
                     venue_name=str(row['venue_name']) if pd.notna(row['venue_name']) else None,
                     venue_address=str(row['venue_address']) if pd.notna(row['venue_address']) else None,
                     venue_neighborhood=str(row['venue_neighborhood']) if pd.notna(row['venue_neighborhood']) else None,
@@ -336,7 +426,7 @@ async def get_events(
             except Exception as e:
                 logger.warning(f"Failed to parse event row: {e}")
                 continue
-        
+
         return events
         
     except Exception as e:

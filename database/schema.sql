@@ -51,30 +51,33 @@ CREATE TABLE events (
     price_min REAL,
     price_max REAL,
     currency TEXT DEFAULT 'DKK',
-    
+
+    -- Topic categorization (tech, nightlife, music, sports)
+    topic VARCHAR(50) NOT NULL DEFAULT 'music',
+    tags JSON DEFAULT '[]',      -- Secondary labels: free, outdoor, family-friendly, etc.
+    is_free BOOLEAN DEFAULT FALSE,
+
     -- Relationships
     venue_id TEXT NOT NULL REFERENCES venues(id),
     artist_ids JSON,        -- Array of artist IDs
-    
+
     -- Source and metadata
-    source TEXT NOT NULL,   -- eventbrite, instagram, etc.
+    source TEXT NOT NULL,   -- eventbrite, luma, meetup, etc.
     source_id TEXT,        -- External ID from source
     source_url TEXT,
     image_url TEXT,
-    
+
     -- Computed fields
     h3_index TEXT,         -- Inherited from venue
-    embedding BLOB,        -- Sentence transformer embedding
-    content_features JSON, -- Preprocessed features for ML
     popularity_score REAL DEFAULT 0.0,
-    
+
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     -- Status
     status TEXT DEFAULT 'active', -- active, cancelled, postponed
-    
+
     FOREIGN KEY (venue_id) REFERENCES venues(id)
 );
 
@@ -131,6 +134,9 @@ CREATE INDEX idx_events_venue ON events(venue_id);
 CREATE INDEX idx_events_h3 ON events(h3_index);
 CREATE INDEX idx_events_source ON events(source);
 CREATE INDEX idx_events_status_datetime ON events(status, date_time);
+CREATE INDEX idx_events_topic ON events(topic);
+CREATE INDEX idx_events_topic_datetime ON events(topic, date_time);
+CREATE INDEX idx_events_is_free ON events(is_free);
 
 CREATE INDEX idx_venues_h3 ON venues(h3_index);
 CREATE INDEX idx_venues_neighborhood ON venues(neighborhood);
@@ -149,13 +155,16 @@ WHERE status = 'active'
   AND date_time > CURRENT_TIMESTAMP;
 
 CREATE VIEW event_details AS
-SELECT 
+SELECT
     e.id,
     e.title,
     e.description,
     e.date_time,
     e.price_min,
     e.price_max,
+    e.topic,
+    e.tags,
+    e.is_free,
     e.status,
     e.venue_id,
     e.h3_index,
@@ -167,10 +176,24 @@ SELECT
     v.lat as venue_lat,
     v.lon as venue_lon,
     COUNT(i.id) as interaction_count,
-    AVG(CASE WHEN i.interaction_type = 'like' THEN 1.0 
-             WHEN i.interaction_type = 'dislike' THEN 0.0 
+    AVG(CASE WHEN i.interaction_type = 'like' THEN 1.0
+             WHEN i.interaction_type = 'dislike' THEN 0.0
              ELSE NULL END) as like_ratio
 FROM events e
 JOIN venues v ON e.venue_id = v.id
 LEFT JOIN interactions i ON e.id = i.event_id
-GROUP BY e.id, e.title, e.description, e.date_time, e.price_min, e.price_max, e.status, e.venue_id, e.h3_index, e.source, e.created_at, e.updated_at, v.name, v.neighborhood, v.lat, v.lon;
+GROUP BY e.id, e.title, e.description, e.date_time, e.price_min, e.price_max,
+         e.topic, e.tags, e.is_free, e.status, e.venue_id, e.h3_index, e.source,
+         e.created_at, e.updated_at, v.name, v.neighborhood, v.lat, v.lon;
+
+-- Topic statistics view
+CREATE VIEW topic_stats AS
+SELECT
+    topic,
+    COUNT(*) as event_count,
+    COUNT(CASE WHEN date_time > CURRENT_TIMESTAMP THEN 1 END) as upcoming_count,
+    COUNT(CASE WHEN is_free THEN 1 END) as free_count,
+    AVG(CASE WHEN price_min IS NOT NULL THEN price_min ELSE 0 END) as avg_price
+FROM events
+WHERE status = 'active'
+GROUP BY topic;
