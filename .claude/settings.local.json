@@ -3,7 +3,9 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(xargs:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python run_scrapers.py:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

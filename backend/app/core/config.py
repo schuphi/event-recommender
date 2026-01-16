@@ -25,10 +25,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = Field(default="../../data/events/events.duckdb", env="DATABASE_URL")
     DB_POOL_SIZE: int = Field(default=10, env="DB_POOL_SIZE")
     
-    # Authentication Configuration
-    JWT_SECRET_KEY: str = Field(default="dev-secret-key-change-in-production", env="JWT_SECRET_KEY")
-    JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
-    JWT_EXPIRATION_HOURS: int = Field(default=24, env="JWT_EXPIRATION_HOURS")
+    # Session Configuration (no auth, session-based tracking only)
+    SESSION_SECRET_KEY: str = Field(default="dev-secret-key-change-in-production", env="SESSION_SECRET_KEY")
 
     # ML Model Configuration
     SENTENCE_TRANSFORMER_MODEL: str = Field(
@@ -59,24 +57,11 @@ class Settings(BaseSettings):
         default=1800, env="RECOMMENDATION_CACHE_TTL"
     )  # 30 minutes
 
-    # Authentication (optional)
-    JWT_SECRET_KEY: Optional[str] = Field(default=None, env="JWT_SECRET_KEY")
-    JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
-    JWT_EXPIRATION_HOURS: int = Field(default=24, env="JWT_EXPIRATION_HOURS")
-
-    # External APIs
+    # External APIs - Event Sources
     EVENTBRITE_API_TOKEN: Optional[str] = Field(
         default=None, env="EVENTBRITE_API_TOKEN"
     )
-    SPOTIFY_CLIENT_ID: Optional[str] = Field(default=None, env="SPOTIFY_CLIENT_ID")
-    SPOTIFY_CLIENT_SECRET: Optional[str] = Field(
-        default=None, env="SPOTIFY_CLIENT_SECRET"
-    )
-    LASTFM_API_KEY: Optional[str] = Field(default=None, env="LASTFM_API_KEY")
-
-    # Social Media Scraping
-    INSTAGRAM_USERNAME: Optional[str] = Field(default=None, env="INSTAGRAM_USERNAME")
-    INSTAGRAM_PASSWORD: Optional[str] = Field(default=None, env="INSTAGRAM_PASSWORD")
+    TICKETMASTER_API_KEY: Optional[str] = Field(default=None, env="TICKETMASTER_API_KEY")
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
